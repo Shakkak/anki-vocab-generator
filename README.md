@@ -46,7 +46,7 @@ Index,Word,Part of Speech,Meaning Definition,Antonym,Examples,Related Words Note
 
 - First, clone the repository and navigate into the project directory.
 
-### 2. # Create and activate a virtual environment (optional but recommended)
+### 2.  Create and activate a virtual environment (optional but recommended)
 
 ```bash
 python -m venv .venv
