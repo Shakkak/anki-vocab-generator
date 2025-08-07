@@ -42,19 +42,40 @@ Index,Word,Part of Speech,Meaning Definition,Antonym,Examples,Related Words Note
 ---
 
 ## 🛠️ How to Use
+### 1. Setup
 
-> ⚠️ Note: The full code will be added to this repository soon.
+- First, clone the repository and navigate into the project directory.
 
-### 1. Prepare your CSV files
+### 2. # Create and activate a virtual environment (optional but recommended)
+
+```bash
+python -m venv .venv
+source .venv/bin/activate  # On Windows, use `venv\Scripts\activate`
+
+```
+
+
+#### Install dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### 3. Prepare your CSV files
 - Create one or more CSV files following the format described above.
-- Name your files sequentially: `ch1.csv`, `ch2.csv`, `ch3.csv`, etc.
+- Name your files sequentially: `Ch1.csv`, `Ch2.csv`, `Ch3.csv`, etc.
 - Place all CSV files in a designated folder (e.g., `input/`).
 
-### 2. Run the script
+### 4. Run the script
 - Execute the main Python script to start the deck generation process.
+
+```bash
+python main.py
+```
+
 - The script will read each CSV file, download necessary audio files using Google TTS, and package everything into an Anki `.apkg` file.
 
-### 3. Import into Anki
+### 5. Import into Anki
 - Once the script finishes, you’ll find an `.apkg` file in the `output/` directory.
 - Open Anki > `File` > `Import` and select the generated file.
 - A new deck will be created with all your vocabulary words, ready for studying!
