@@ -1,3 +1,16 @@
+# Don't ignore the folders themselves
+!input/
+!output/
+
+# Ignore everything inside, except .gitkeep
+input/*
+!input/.gitkeep
+
+output/*
+!output/.gitkeep
+
 .env/
-input/
-output/
+
+__pycache__/
+*.pyc
+s
