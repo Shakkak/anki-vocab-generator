@@ -62,7 +62,7 @@ if __name__ == "__main__":
     os.makedirs(os.path.dirname(OUTPUT_FILENAME), exist_ok=True)
 
     # Step 1: Generate all necessary audio files.
-    # generate_all_audio_files()
+    generate_all_audio_files()
     print("\n--- Audio Generation Complete ---")
 
     # Step 2: Create the Anki deck using the generated files.
