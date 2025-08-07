@@ -9,7 +9,7 @@ input/*
 output/*
 !output/.gitkeep
 
-.env/
+.venv/
 
 __pycache__/
 *.pyc
