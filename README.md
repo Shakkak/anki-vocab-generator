@@ -4,6 +4,8 @@ This project allows you to automatically generate Anki decks for learning Englis
 
 ---
 
+![Back of card](images/example_back_of_card.png)
+
 ## 🚀 Features
 
 - **CSV to Anki**: Automatically converts CSV files into importable Anki `.apkg` files.
