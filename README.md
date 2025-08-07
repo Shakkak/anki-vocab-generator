@@ -18,7 +18,7 @@ This project allows you to automatically generate Anki decks for learning Englis
 
 ## 📄 CSV File Format
 
-To generate the Anki deck, your CSV files must follow a specific format. The script will process each CSV file named `ch{i}.csv` (e.g., `ch1.csv`, `ch2.csv`, etc.) and create a corresponding sub-deck.
+To generate the Anki deck, your CSV files must follow a specific format. The script will process each CSV file named `Ch{i}.csv` (e.g., `Ch1.csv`, `Ch2.csv`, etc.) and create a corresponding sub-deck.
 
 Each CSV file must include the following columns:
 
