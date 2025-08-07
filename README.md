@@ -4,7 +4,7 @@ This project allows you to automatically generate Anki decks for learning Englis
 
 ---
 
-![Back of card](images/example_back_of_card.png)
+![Back of card](image/example_back_of_card.png)
 
 ## 🚀 Features
 
