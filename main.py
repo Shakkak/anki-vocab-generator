@@ -17,7 +17,7 @@ DECK_NAME_PREFIX = 'English Vocabulary Learning'
 OUTPUT_FILENAME = 'output/English_Vocabulary_Deck.apkg'
 
 # Columns from which to generate audio
-COLUMNS_FOR_AUDIO = ["Word", "Meaning Definition", "Related Words Notes"]
+COLUMNS_FOR_AUDIO = ["Word", "Meaning Definition", "Related Words Notes"] # U can add or remove more column
 
 def generate_all_audio_files():
     """
@@ -27,7 +27,7 @@ def generate_all_audio_files():
     os.makedirs(AUDIO_FOLDER, exist_ok=True)
 
     try:
-        csv_files = sorted(Path(CSV_FOLDER).glob('ch*.csv'))
+        csv_files = sorted(Path(CSV_FOLDER).glob('Ch*.csv'))
         if not csv_files:
             print(f"⚠️  No CSV files found in '{CSV_FOLDER}'.")
             return
@@ -36,7 +36,7 @@ def generate_all_audio_files():
         return
 
     for csv_file_path in csv_files:
-        chapter_num = int(csv_file_path.stem.replace('ch', ''))
+        chapter_num = int(csv_file_path.stem.replace('Ch', ''))
         print(f"\nProcessing Audio for: {csv_file_path.name}")
 
         df = pd.read_csv(csv_file_path)
@@ -62,7 +62,7 @@ if __name__ == "__main__":
     os.makedirs(os.path.dirname(OUTPUT_FILENAME), exist_ok=True)
 
     # Step 1: Generate all necessary audio files.
-    generate_all_audio_files()
+    # generate_all_audio_files()
     print("\n--- Audio Generation Complete ---")
 
     # Step 2: Create the Anki deck using the generated files.
