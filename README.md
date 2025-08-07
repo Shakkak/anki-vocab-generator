@@ -52,7 +52,7 @@ Index,Word,Part of Speech,Meaning Definition,Antonym,Examples,Related Words Note
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate  # On Windows, use `venv\Scripts\activate`
+source .venv/bin/activate  # On Windows, use `.venv\Scripts\activate`
 
 ```
 
