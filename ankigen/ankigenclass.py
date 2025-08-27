@@ -127,14 +127,14 @@ def create_initial_structure(headers, csv_file_path):
         print("--- Initial Structure Menu ---")
         print("1. Add headers to the 'front' of the card")
         print("2. Add headers to the 'back' of the card")
-        print("3. Finish and create the structure")
-        choice = input("Enter your choice (1-3): ")
+        print("end: Finish and create the structure")
+        choice = input("Enter your choice (1-2 or end): ")
 
         if choice == '1':
             _assign_field_with_duplicates('front', new_structure, available_headers)
         elif choice == '2':
             _assign_field_with_duplicates('back', new_structure, available_headers)
-        elif choice == '3':
+        elif choice == 'end':
             print("Initial structure configured.")
             save_structure_to_json(new_structure, csv_file_path)
             return new_structure

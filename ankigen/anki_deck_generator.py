@@ -7,8 +7,6 @@ from pathlib import Path
 import random
 
 
-# The ANKI_MODEL definition remains exactly the same as before.
-# (I'm omitting it here for brevity, but you would copy the full model definition from the previous answer)
 ANKI_MODEL = genanki.Model(
         random.randrange(1 << 63),  # New unique ID for the updated model
         'TOEFL Vocabulary Model - Styled',
@@ -32,7 +30,7 @@ ANKI_MODEL = genanki.Model(
                         <div class="audio">{{Word_Audio}}</div>
                     </div>
                 ''',
-                # --- CHANGE IS HERE: Added "meaning-label" class ---
+
                 'afmt': '''
                     <div class="card-back">
                         <div class="front-word">{{Word}} {{Word_Audio}}</div>
