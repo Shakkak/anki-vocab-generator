@@ -3,9 +3,8 @@
 import os
 import pandas as pd
 from pathlib import Path
-
-# --- Local Imports ---
-from anki_deck_generator import create_anki_deck
+# --- lOCAL iMports ---
+from ankigen.anki_deck_generator import create_anki_deck
 # ★★★ This is where you choose your TTS engine! ★★★
 # To switch, you would change this import, e.g., from tts_providers.aws_polly_provider import generate_audio
 from tts_providers.gtts_provider import generate_audio as tts_provider
@@ -20,12 +19,12 @@ OUTPUT_FILENAME = 'output/English_Vocabulary_Deck.apkg'
 COLUMNS_FOR_AUDIO = ["Word", "Meaning Definition", "Related Words Notes"] # U can add or remove more column
 
 def generate_all_audio_files():
-    """
+    """ 
     Orchestrates the generation of all required audio files.
     """
     print("--- Starting Audio Generation ---")
     os.makedirs(AUDIO_FOLDER, exist_ok=True)
-
+    
     try:
         csv_files = sorted(Path(CSV_FOLDER).glob('Ch*.csv'))
         if not csv_files:
@@ -46,8 +45,7 @@ def generate_all_audio_files():
                     text_to_speak = str(row[col_name])
                     audio_filename = f"ch{chapter_num}_{index}_{col_name.replace(' ', '_')}.mp3"
                     output_path = os.path.join(AUDIO_FOLDER, audio_filename)
-
-                    # Only generate audio if it doesn't already exist
+                   # Only generate audio if it doesn't already exist
                     if not os.path.exists(output_path):
                         print(f"  -> Generating: {audio_filename}")
                         # Call the chosen TTS provider
