@@ -515,46 +515,46 @@ default_css = '''
             }
         '''
 
-# 1. Get the headers from your CSV file.
+# # 1. Get the headers from your CSV file.
 
-csv_headers, csv_path = get_csv_headers('/home/cin/projects/English Vocabulary Anki Deck Generator/input/')
+# csv_headers, csv_path = get_csv_headers('/home/cin/projects/English Vocabulary Anki Deck Generator/input/')
 
-print("Found the following headers from your data source:")
-print(csv_headers)
+# print("Found the following headers from your data source:")
+# print(csv_headers)
 
-# 2. Call the new function to build the initial structure.
-#    The script will now enter the interactive setup menu.
-initial_card_structure = create_initial_structure(csv_headers, csv_path)
-print(f"Configuration saved to '{csv_path.with_suffix('.json')}'")
+# # 2. Call the new function to build the initial structure.
+# #    The script will now enter the interactive setup menu.
+# initial_card_structure = create_initial_structure(csv_headers, csv_path)
+# print(f"Configuration saved to '{csv_path.with_suffix('.json')}'")
 
-# use a pretty printer or a helper function to display it
+# # use a pretty printer or a helper function to display it
 
-print(json.dumps(initial_card_structure, indent=4))
-
-
+# print(json.dumps(initial_card_structure, indent=4))
 
 
-# 3. Initialize the generator with your CSS
-generator = AnkiCardGenerator(css=default_css)
-
-# 3. Visualize the template with your structure in the shell
-generator.visualize(initial_card_structure)
-
-# 4. You can still generate the Anki template as before
-anki_template = generator.make_template(initial_card_structure)
-
-# Print the generated template to see the data structure
-# import json
-# print("\n\nGenerated Anki Template Data:\n")
-# print(json.dumps(anki_template, indent=4))
 
 
-edited_structure = edit_card_structure(initial_card_structure, csv_path)
-print("\n--- Structure after further edits ---")
-print(json.dumps(edited_structure, indent=4))
-print(f"Configuration saved to '{csv_path.with_suffix('.json')}'")
+# # 3. Initialize the generator with your CSS
+# generator = AnkiCardGenerator(css=default_css)
+
+# # 3. Visualize the template with your structure in the shell
+# generator.visualize(initial_card_structure)
+
+# # 4. You can still generate the Anki template as before
+# anki_template = generator.make_template(initial_card_structure)
+
+# # Print the generated template to see the data structure
+# # import json
+# # print("\n\nGenerated Anki Template Data:\n")
+# # print(json.dumps(anki_template, indent=4))
 
 
-print("\nFinal, updated structure:")
-_print_structure(edited_structure) # Using the helper to print the final result
-print(f"Configuration saved to '{csv_path.with_suffix('.json')}'")
+# edited_structure = edit_card_structure(initial_card_structure, csv_path)
+# print("\n--- Structure after further edits ---")
+# print(json.dumps(edited_structure, indent=4))
+# print(f"Configuration saved to '{csv_path.with_suffix('.json')}'")
+
+
+# print("\nFinal, updated structure:")
+# _print_structure(edited_structure) # Using the helper to print the final result
+# print(f"Configuration saved to '{csv_path.with_suffix('.json')}'")

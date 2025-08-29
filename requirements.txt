@@ -1,4 +1,5 @@
-genanki==0.13.0
-gTTS==2.5.1
-numpy==2.3.2
-pandas==2.2.2
+genanki
+numpy
+pandas
+kokoro>=0.9.4
+soundfile
