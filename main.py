@@ -1,3 +1,8 @@
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
+
+
 # In main.py
 import os
 import pandas as pd
@@ -140,7 +145,6 @@ def generate_all_audio_files():
                     
                     # Define the output filename structure
                     output_base_name = f"ch{chapter_num}_{index}_{col_name.replace(' ', '_')}"
-                    output_path_with_ext = os.path.join(AUDIO_FOLDER, f"{output_base_name}")
 
                     # # 5. Generate audio only if it doesn't already exist
                     # if not os.path.exists(output_path_with_ext):
@@ -148,12 +152,12 @@ def generate_all_audio_files():
                         
                         # Call your specific TTS function
                     generate_and_merge_speech(
-                        lang_code="en",
-                        voice="en_heart",
+                        lang_code="a",
+                        voice="af_heart",
                         text=text_to_speak,
                         chunk_dir= os.path.join(AUDIO_FOLDER, "chunks"),
                         output_dir= AUDIO_FOLDER,
-                        output_name= output_path_with_ext
+                        output_name= output_base_name
                     )
 
                     # else:
