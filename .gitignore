@@ -13,4 +13,3 @@ output/*
 
 __pycache__/
 *.pyc
-s

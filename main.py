@@ -92,7 +92,7 @@ def get_audio_columns_from_config(json_path):
 
 json_path = './input/Ch1.json'
 print('sounds:\n',get_audio_columns_from_config(json_path))
-AUDIO_FOLDER = 'your_audio_folder'
+AUDIO_FOLDER = './output/audio'
 
 def generate_all_audio_files():
     """
@@ -140,21 +140,24 @@ def generate_all_audio_files():
                     
                     # Define the output filename structure
                     output_base_name = f"ch{chapter_num}_{index}_{col_name.replace(' ', '_')}"
-                    output_path_with_ext = os.path.join(AUDIO_FOLDER, f"{output_base_name}.mp3")
+                    output_path_with_ext = os.path.join(AUDIO_FOLDER, f"{output_base_name}")
 
-                    # 5. Generate audio only if it doesn't already exist
-                    if not os.path.exists(output_path_with_ext):
-                        print(f"  -> Generating: {output_base_name}.mp3")
+                    # # 5. Generate audio only if it doesn't already exist
+                    # if not os.path.exists(output_path_with_ext):
+                    #     print(f"  -> Generating: {output_base_name}.mp3")
                         
                         # Call your specific TTS function
-                        generate_and_merge_speech(
-                            lang_code="a",         # Placeholder value as requested
-                            voice="af_heart",      # Placeholder value as requested
-                            text=text_to_speak,
-                            output_name=output_base_name # Pass the name without extension
-                        )
-                    else:
-                        print(f"  -- Skipping, exists: {output_base_name}.mp3")
+                    generate_and_merge_speech(
+                        lang_code="en",
+                        voice="en_heart",
+                        text=text_to_speak,
+                        chunk_dir= os.path.join(AUDIO_FOLDER, "chunks"),
+                        output_dir= AUDIO_FOLDER,
+                        output_name= output_path_with_ext
+                    )
+
+                    # else:
+                    #     print(f"  -- Skipping, exists: {output_base_name}.mp3")
 
     print("\n--- Audio Generation Complete ---")
 

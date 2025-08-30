@@ -1,17 +1,27 @@
 import os
-import subprocess
+import shutil
 import soundfile as sf
-from kokoro import KPipeline
 from pydub import AudioSegment
+from kokoro.pipeline import KPipeline  # assuming you're using kokoro-tts
 
-def generate_speech(lang_code, voice, text, output_name="output"):
-    # Install system dependency (in case you're running this in Colab)
+def generate_speech(lang_code, voice, text, chunk_dir, chunk_base="chunk"):
+    """
+    Generates MP3 chunks from input text using Kokoro TTS and saves them into chunk_dir.
+
+    Args:
+        lang_code (str): Language code for Kokoro TTS.
+        voice (str): Voice name for Kokoro TTS.
+        text (str): Input text to synthesize.
+        chunk_dir (str): Directory to save individual MP3 chunks.
+        chunk_base (str): Base name for each chunk file.
+    """
+    os.makedirs(chunk_dir, exist_ok=True)
+
+    # Install espeak-ng (Linux systems)
     os.system("apt-get -qq -y install espeak-ng > /dev/null 2>&1")
 
-    # Initialize Kokoro TTS pipeline
     pipeline = KPipeline(lang_code=lang_code)
 
-    # Generate speech from text
     generator = pipeline(
         text,
         voice=voice,
@@ -24,29 +34,24 @@ def generate_speech(lang_code, voice, text, output_name="output"):
         print("Text:", gs)
         print("Phonemes:", ps)
 
-        # Temporary WAV path (intermediate)
-        wav_path = f"{output_name}_{i}.wav"
+        wav_path = os.path.join(chunk_dir, f"{chunk_base}_{i}.wav")
         sf.write(wav_path, audio, 24000)
 
-        # Export to MP3
-        mp3_path = f"{output_name}_{i}.mp3"
+        mp3_path = os.path.join(chunk_dir, f"{chunk_base}_{i}.mp3")
         sound = AudioSegment.from_wav(wav_path)
         sound.export(mp3_path, format="mp3")
         print(f"Saved MP3: {mp3_path}")
 
-        # Clean up intermediate WAV
         os.remove(wav_path)
 
-
-def merge_mp3_chunks(folder_path, output_path="merged_output.mp3"):
+def merge_mp3_chunks(folder_path, output_path):
     """
     Merges all .mp3 chunks in a folder into a single mp3 file.
 
     Args:
-        folder_path (str): Path to the folder containing .mp3 chunks.
-        output_path (str): Name/path for the final merged mp3 file.
+        folder_path (str): Path to folder containing .mp3 chunks.
+        output_path (str): Path for the final merged MP3 file.
     """
-    # Sort files like chunk_0.mp3, chunk_1.mp3, ...
     files = sorted([
         f for f in os.listdir(folder_path)
         if f.lower().endswith(".mp3")
@@ -56,28 +61,36 @@ def merge_mp3_chunks(folder_path, output_path="merged_output.mp3"):
         print("No .mp3 files found in folder.")
         return
 
-    # Load and concatenate audio segments
     merged = AudioSegment.empty()
     for f in files:
-        chunk = AudioSegment.from_mp3(os.path.join(folder_path, f))
-        merged += chunk
+        mp3_path = os.path.join(folder_path, f)
+        merged += AudioSegment.from_mp3(mp3_path)
 
-    # Export the final merged audio
     merged.export(output_path, format="mp3")
     print(f"Merged MP3 saved to: {output_path}")
 
-def generate_and_merge_speech(lang_code, voice, text, output_name="output"):
+def generate_and_merge_speech(lang_code, voice, text, chunk_dir, output_dir, output_name="output", chunk_base="chunk"):
     """
-    Generate MP3 speech chunks from text and merge them into a single file.
+    Complete pipeline: generate MP3 chunks and merge into a final MP3 file.
 
     Args:
-        lang_code (str): Language code for Kokoro (e.g., 'a')
-        voice (str): Kokoro voice name (e.g., 'af_heart')
-        text (str): Input text
-        output_name (str): Base name for chunk files and final output
+        lang_code (str): Language code.
+        voice (str): Voice name.
+        text (str): Input text.
+        chunk_dir (str): Directory to store chunks.
+        output_dir (str): Directory to store final merged MP3.
+        output_name (str): Name of final MP3 (without extension).
+        chunk_base (str): Base name for chunk files.
     """
-    print("[1/2] Generating speech chunks...")
-    generate_speech(lang_code, voice, text, output_name)
+    print("[1/3] Generating speech chunks...")
+    generate_speech(lang_code, voice, text, chunk_dir, chunk_base)
 
-    print("\n[2/2] Merging chunks...")
-    merge_mp3_chunks("audio_chunks", output_path=f"{output_name}_final.mp3")
+    os.makedirs(output_dir, exist_ok=True)
+    final_output_path = os.path.join(output_dir, f"{output_name}.mp3")
+
+    print("[2/3] Merging chunks...")
+    merge_mp3_chunks(chunk_dir, final_output_path)
+
+    print("[3/3] Cleaning up chunk directory...")
+    shutil.rmtree(chunk_dir)
+    print(f"Deleted chunk directory: {chunk_dir}")
