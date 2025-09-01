@@ -30,9 +30,9 @@ def generate_speech(lang_code, voice, text, chunk_dir, chunk_base="chunk"):
     )
 
     for i, (gs, ps, audio) in enumerate(generator):
-        print(f"\n--- Chunk {i} ---")
-        print("Text:", gs)
-        print("Phonemes:", ps)
+        # print(f"\n--- Chunk {i} ---")
+        # print("Text:", gs)
+        # print("Phonemes:", ps)
 
         wav_path = os.path.join(chunk_dir, f"{chunk_base}_{i}.wav")
         sf.write(wav_path, audio, 24000)
@@ -40,7 +40,7 @@ def generate_speech(lang_code, voice, text, chunk_dir, chunk_base="chunk"):
         mp3_path = os.path.join(chunk_dir, f"{chunk_base}_{i}.mp3")
         sound = AudioSegment.from_wav(wav_path)
         sound.export(mp3_path, format="mp3")
-        print(f"Saved MP3: {mp3_path}")
+        # print(f"Saved MP3: {mp3_path}")
 
         os.remove(wav_path)
 
@@ -82,15 +82,15 @@ def generate_and_merge_speech(lang_code, voice, text, chunk_dir, output_dir, out
         output_name (str): Name of final MP3 (without extension).
         chunk_base (str): Base name for chunk files.
     """
-    print("[1/3] Generating speech chunks...")
+    # print("[1/3] Generating speech chunks...")
     generate_speech(lang_code, voice, text, chunk_dir, chunk_base)
 
     os.makedirs(output_dir, exist_ok=True)
     final_output_path = os.path.join(output_dir, f"{output_name}.mp3")
 
-    print("[2/3] Merging chunks...")
+    # print("[2/3] Merging chunks...")
     merge_mp3_chunks(chunk_dir, final_output_path)
 
-    print("[3/3] Cleaning up chunk directory...")
+    # print("[3/3] Cleaning up chunk directory...")
     shutil.rmtree(chunk_dir)
-    print(f"Deleted chunk directory: {chunk_dir}")
+    # print(f"Deleted chunk directory: {chunk_dir}")

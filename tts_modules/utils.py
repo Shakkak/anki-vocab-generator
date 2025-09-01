@@ -3,6 +3,7 @@ from pathlib import Path
 import json
 import os
 import pandas as pd
+from tqdm import tqdm
 
 def get_audio_columns_from_config(json_path):
     """
@@ -96,7 +97,7 @@ def split_text_by_delimiter(text, delimiter="#"):
 
 def process_dataframe(df, chapter_id, columns_for_audio, audio_folders, voice_params):
     """
-    Processes a DataFrame row by row to generate audio for specified columns.
+    Processes a DataFrame row by row to generate audio for specified columns, with a progress bar.
 
     Parameters:
         df (pd.DataFrame): The input data.
@@ -105,14 +106,15 @@ def process_dataframe(df, chapter_id, columns_for_audio, audio_folders, voice_pa
         audio_folders (dict): Folder structure for audio output.
         voice_params (dict): Language and voice settings.
     """
-    for row_idx, row in df.iterrows():
+    for row_idx, row in enumerate(tqdm(df.itertuples(index=False), total=len(df), desc=f"Chapter {chapter_id}"), start=1):
         for col_name in columns_for_audio:
-            if pd.isna(row[col_name]):
+            value = getattr(row, col_name)
+            if pd.isna(value):
                 continue
-            text_parts = str(row[col_name]).split('#')  # Split by delimiter
-            for part_idx, part in enumerate(text_parts):
+            text_parts = str(value).split('#')  # Split by delimiter
+            for part_idx, part in enumerate(text_parts, start=1):
                 if part.strip():
-                    filename = f"ch{chapter_id}_r{row_idx+1}_c{col_name}_p{part_idx+1}.mp3"
+                    filename = f"ch{chapter_id}_r{row_idx}_c{col_name}_p{part_idx}.mp3"
                     output_path = Path(audio_folders["base"]) / filename
                     generate_and_merge_speech(
                         lang_code=voice_params["lang_code"],
