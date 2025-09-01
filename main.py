@@ -1,6 +1,7 @@
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
+warnings.filterwarnings("ignore", category=SyntaxWarning)
 
 import os
 import json
@@ -16,7 +17,7 @@ from ankigen.ankigenclass import (
     create_initial_structure,
     get_csv_files_windows_sorted_stdlib
 )
-from tts_modules.utils import generate_all_audio_from_df
+from tts_modules.utils import generate_all_audio_from_df, copy_json_for_same_structure
 
 # === CLI ARGUMENTS ===
 parser = argparse.ArgumentParser(description="Generate Anki decks with optional TTS audio.")
@@ -80,22 +81,29 @@ if multiple_csv_flag and args.same_structure and args.merge_duplicates:
     print("Found the following headers from your data source:")
     print(headers_list[0])
 
+    # === Handle JSON for same structure ===
+    # Always create JSON for the first CSV
+    first_df, first_headers, first_filename = dataframes_list[0], headers_list[0], filenames_list[0]
+    first_config_path = Path(CSV_FOLDER, first_filename).with_suffix(".json")
+
+    initial_card_structure = create_initial_structure(first_headers, first_config_path)
+    print(json.dumps(initial_card_structure, indent=4))
+
+    # If same_structure: copy that JSON for the rest
+    if args.same_structure:
+        copy_json_for_same_structure(first_config_path, filenames_list)
+
+    # === Loop over all DataFrames ===
     for idx, (df, headers, filename) in enumerate(zip(dataframes_list, headers_list, filenames_list), start=1):
         print(f"\n--- Processing DataFrame {idx}: {filename} ---")
 
-        # Merge duplicates if requested
         merged_df = merge_dataframe(df, args.merge_duplicates, args.key_column)
-
-        # Prepare JSON configuration path
-        configuration_path = Path(CSV_FOLDER, filename).with_suffix(".json")
-
-        # Create initial card structure (writes JSON if missing)
-        initial_card_structure = create_initial_structure(headers, configuration_path)
-        print(json.dumps(initial_card_structure, indent=4))
+        config_path = Path(CSV_FOLDER, filename).with_suffix(".json")
 
         # Generate audio for this DataFrame
         chapter_id = idx
-        generate_all_audio_from_df(merged_df, chapter_id, configuration_path, AUDIO_FOLDER)
+        generate_all_audio_from_df(merged_df, chapter_id, config_path, AUDIO_FOLDER)
+
 
 elif multiple_csv_flag:
     print("⚠️ Multiple CSVs found, but conditions (--same_structure and --merge_duplicates) not satisfied.")

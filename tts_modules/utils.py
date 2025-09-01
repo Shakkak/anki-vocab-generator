@@ -3,8 +3,28 @@ import json
 import pandas as pd
 from pathlib import Path
 from tqdm import tqdm
-
 from tts_modules.kokoro import generate_batched_speech
+import shutil
+from pathlib import Path
+
+def copy_json_for_same_structure(first_json_path: Path, csv_filenames: list[str]):
+    """
+    Copies the first JSON config file to create configs for all other CSV files.
+
+    Args:
+        first_json_path (Path): Path to the first generated JSON file.
+        csv_filenames (list[str]): List of CSV filenames (not Paths).
+                                   Each will get a corresponding JSON copy.
+    """
+    for csv_file in csv_filenames[1:]:  # Skip first, already has JSON
+        target_json = Path(first_json_path.parent) / Path(csv_file).with_suffix(".json")
+        if not target_json.exists():
+            shutil.copy(first_json_path, target_json)
+            print(f"✅ Copied JSON config to {target_json}")
+        else:
+            print(f"⚠️ JSON already exists for {csv_file}, skipping.")
+
+
 
 # ---------- CONFIG PARSING ----------
 def get_audio_columns_from_config(json_path):
