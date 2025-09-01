@@ -2,17 +2,108 @@ import copy
 import pandas as pd
 from pathlib import Path
 import json
+import re
+from typing import List
 
-def get_csv_headers(csv_folder):
+from pathlib import Path
+import pandas as pd
+
+def get_csv_informations(csv_folder):
     """
-    Reads the first CSV file and returns its headers.
+    Reads all CSV files in the given folder and returns:
+    - A list of column headers for each CSV
+    - A list of DataFrames (one per CSV)
+    - A list of CSV filenames
     """
-    csv_files = sorted(Path(csv_folder).glob('Ch*.csv'))
+    csv_files = sorted(Path(csv_folder).glob('*.csv'))
     if not csv_files:
-        raise FileNotFoundError("No CSV files found in input folder.")
+        raise FileNotFoundError("No CSV files found in the input folder.")
+
+    headers_list = []
+    dataframes_list = []
+    filenames_list = []
+
+    for csv_file in csv_files:
+        df = pd.read_csv(csv_file)
+        headers_list.append(df.columns.tolist())
+        dataframes_list.append(df)
+        filenames_list.append(csv_file.name)
+
+    return headers_list, dataframes_list, filenames_list
+
+
+def get_csv_files_windows_sorted_stdlib(folder_path: str) -> List[Path]:
+    """
+    Finds all CSV files in a folder and returns them sorted in "natural order"
+    using only the standard library.
+
+    Args:
+        folder_path (str): The path to the folder to search.
+
+    Returns:
+        List[Path]: A naturally sorted list of Path objects for each CSV file.
+        
+    Raises:
+        FileNotFoundError: If the folder does not exist or is not a directory.
+    """
+    p = Path(folder_path)
+    if not p.is_dir():
+        raise FileNotFoundError(f"Error: The specified folder does not exist: '{folder_path}'")
+
+    csv_files = list(p.glob('*.csv'))
     
-    df = pd.read_csv(csv_files[0])
-    return df.columns.tolist(), csv_files[0]
+    def natural_sort_key(path_obj):
+        # This key function splits the filename into text and number parts
+        # e.g., "Ch10.csv" -> ['Ch', 10, '.csv']
+        # This allows the sorting algorithm to compare numbers as integers, not strings.
+        text = path_obj.name
+        return [int(c) if c.isdigit() else c.lower() for c in re.split('([0-9]+)', text)]
+
+    sorted_files = sorted(csv_files, key=natural_sort_key)
+    
+    return sorted_files
+
+
+
+def process_dataframe(df, merge_duplicates=False, key_column=None, delimiter=' # '):
+    """
+    Processes a DataFrame to optionally merge rows with duplicate values in a key column.
+
+    Args:
+        df (pd.DataFrame): The input DataFrame.
+        merge_duplicates (bool): If True, merge duplicate rows. If False, returns the original DataFrame.
+        key_column (str): The name of the column to check for duplicates. Required if merge_duplicates is True.
+        delimiter (str): The string used to join values from merged rows.
+
+    Returns:
+        pd.DataFrame: A new DataFrame with duplicates merged, or the original DataFrame.
+    """
+    if not merge_duplicates:
+        return df
+
+    if key_column is None:
+        raise ValueError("A 'key_column' must be provided when 'merge_duplicates' is True.")
+        
+    if key_column not in df.columns:
+        raise ValueError(f"The key_column '{key_column}' does not exist in the DataFrame.")
+
+    # Convert all data to string type, filling NaNs with empty strings to avoid issues
+    df_str = df.fillna('').astype(str)
+
+    def merge_cells(series):
+        # Filter out empty strings before joining
+        return delimiter.join(item for item in series if item)
+
+    # All columns except the key column will be aggregated by the merge_cells function
+    agg_funcs = {col: merge_cells for col in df_str.columns if col != key_column}
+    
+    # Group by the key column and apply the aggregation
+    merged_df = df_str.groupby(key_column, as_index=False).agg(agg_funcs)
+    
+    # Ensure the column order matches the original DataFrame
+    merged_df = merged_df[df.columns]
+
+    return merged_df
 
 def save_structure_to_json(structure_data, csv_file_path):
     """

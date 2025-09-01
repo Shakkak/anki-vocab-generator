@@ -20,3 +20,6 @@ def generate_audio(text, output_path, lang='en'):
     except Exception as e:
         print(f"❌ gTTS Error for text '{text[:20]}...': {e}")
         return False
+    
+    
+
