@@ -48,55 +48,91 @@ def sanitize_text(text):
 def split_text_by_delimiter(text, delimiter="#"):
     return [part.strip() for part in str(text).split(delimiter)]
 
-def generate_audio_for_row(chapter_num, row_idx, col_name, text, output_base, voice_params, audio_folders):
-    """
-    Generate audio for each part of the split text (by #).
-    """
-    split_parts = split_text_by_delimiter(text)
+# def generate_audio_for_row(chapter_num, row_idx, col_name, text, output_base, voice_params, audio_folders):
+#     """
+#     Generate audio for each part of the split text (by #).
+#     """
+#     split_parts = split_text_by_delimiter(text)
     
-    for part_idx, part in enumerate(split_parts):
-        if not part:
-            continue  # Skip empty segments
+#     for part_idx, part in enumerate(split_parts):
+#         if not part:
+#             continue  # Skip empty segments
 
-        output_name = f"{output_base}_{part_idx}"
+#         output_name = f"{output_base}_{part_idx}"
 
-        generate_and_merge_speech(
-            lang_code=voice_params["lang_code"],
-            voice=voice_params["voice"],
-            text=sanitize_text(part),
-            chunk_dir=os.path.join(audio_folders["base"], "chunks"),
-            output_dir=audio_folders["base"],
-            output_name=output_name
-        )
+#         generate_and_merge_speech(
+#             lang_code=voice_params["lang_code"],
+#             voice=voice_params["voice"],
+#             text=sanitize_text(part),
+#             chunk_dir=os.path.join(audio_folders["base"], "chunks"),
+#             output_dir=audio_folders["base"],
+#             output_name=output_name
+#         )
 
-        print(f"  -> Generated: {output_name}.mp3")
+#         print(f"  -> Generated: {output_name}.mp3")
 
-def process_csv_file(csv_file_path, columns_for_audio, audio_folders, voice_params):
+# def process_csv_file(csv_file_path, columns_for_audio, audio_folders, voice_params):
+#     """
+#     Process a single CSV file and generate audio for each flagged column.
+#     """
+#     chapter_num = int(csv_file_path.stem.replace('Ch', ''))
+#     print(f"\nProcessing Audio for: {csv_file_path.name}")
+
+#     df = pd.read_csv(csv_file_path)
+
+#     for row_idx, row in df.iterrows():
+#         for col_name in columns_for_audio:
+#             if col_name in row and pd.notna(row[col_name]):
+#                 output_base = f"ch{chapter_num}_{row_idx}_{col_name.replace(' ', '_')}"
+#                 generate_audio_for_row(
+#                     chapter_num=chapter_num,
+#                     row_idx=row_idx,
+#                     col_name=col_name,
+#                     text=row[col_name],
+#                     output_base=output_base,
+#                     voice_params=voice_params,
+#                     audio_folders=audio_folders
+#                 )
+
+def process_dataframe(df, chapter_id, columns_for_audio, audio_folders, voice_params):
     """
-    Process a single CSV file and generate audio for each flagged column.
+    Processes a DataFrame row by row to generate audio for specified columns.
+
+    Parameters:
+        df (pd.DataFrame): The input data.
+        chapter_id (str): Used in naming the audio files.
+        columns_for_audio (List[str]): Which columns to generate audio for.
+        audio_folders (dict): Folder structure for audio output.
+        voice_params (dict): Language and voice settings.
     """
-    chapter_num = int(csv_file_path.stem.replace('Ch', ''))
-    print(f"\nProcessing Audio for: {csv_file_path.name}")
-
-    df = pd.read_csv(csv_file_path)
-
     for row_idx, row in df.iterrows():
         for col_name in columns_for_audio:
-            if col_name in row and pd.notna(row[col_name]):
-                output_base = f"ch{chapter_num}_{row_idx}_{col_name.replace(' ', '_')}"
-                generate_audio_for_row(
-                    chapter_num=chapter_num,
-                    row_idx=row_idx,
-                    col_name=col_name,
-                    text=row[col_name],
-                    output_base=output_base,
-                    voice_params=voice_params,
-                    audio_folders=audio_folders
-                )
+            if pd.isna(row[col_name]):
+                continue
+            text_parts = str(row[col_name]).split('#')  # Split by delimiter
+            for part_idx, part in enumerate(text_parts):
+                if part.strip():
+                    filename = f"ch{chapter_id}_r{row_idx+1}_c{col_name}_p{part_idx+1}.mp3"
+                    output_path = Path(audio_folders["base"]) / filename
+                    generate_and_merge_speech(
+                        lang_code=voice_params["lang_code"],
+                        voice=voice_params["voice"],
+                        text=sanitize_text(part),
+                        chunk_dir=os.path.join(audio_folders["base"], "chunks"),
+                        output_dir=audio_folders["base"],
+                        output_name=filename
+                    )
 
-def generate_all_audio_files(json_path, CSV_FOLDER, AUDIO_FOLDER):
+
+def generate_all_audio_from_df(df, chapter_id, json_path, AUDIO_FOLDER):
     """
-    Orchestrates the generation of all required audio files based on the JSON config.
+    Generates all required audio files based on the JSON config and a given DataFrame.
+
+    Parameters:
+        df (pd.DataFrame): The input data (e.g. merged CSV).
+        chapter_id (str): Identifier for the chapter, used in naming audio files.
+        json_path (str): Path to JSON config specifying which columns to process.
+        AUDIO_FOLDER (str): Root folder where audio files will be saved.
     """
     print("--- Starting Audio Generation ---")
     os.makedirs(AUDIO_FOLDER, exist_ok=True)
@@ -107,11 +143,6 @@ def generate_all_audio_files(json_path, CSV_FOLDER, AUDIO_FOLDER):
         return
     print(f"✅ Columns to generate audio for: {', '.join(columns_for_audio)}")
 
-    csv_files = sorted(Path(CSV_FOLDER).glob('Ch*.csv'))
-    if not csv_files:
-        print(f"⚠️  No CSV files starting with 'Ch' found in '{CSV_FOLDER}'.")
-        return
-
     voice_params = {
         "lang_code": "a",        # Replace with actual language code
         "voice": "af_heart"      # Replace with actual voice
@@ -121,10 +152,11 @@ def generate_all_audio_files(json_path, CSV_FOLDER, AUDIO_FOLDER):
         "base": AUDIO_FOLDER
     }
 
-    for csv_file_path in csv_files:
-        process_csv_file(csv_file_path, columns_for_audio, audio_folders, voice_params)
+    # Directly process the DataFrame
+    process_dataframe(df, chapter_id, columns_for_audio, audio_folders, voice_params)
 
     print("\n--- Audio Generation Complete ---")
+
 
 
 # def generate_all_audio_files(json_path, CSV_FOLDER, AUDIO_FOLDER):

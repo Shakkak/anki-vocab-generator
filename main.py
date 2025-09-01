@@ -81,15 +81,24 @@ elif multiple_csv_flag and args.same_structure and args.merge_duplicates:
     headers_list, dataframes_list, filenames_list = get_csv_informations('./input')
     print("Found the following headers from your data source:")
     print(headers_list[0])
-    merged_df = process_dataframe(dataframes_list[0], args.merge_duplicates, args.key_column)
-    
-    configuration_dir = os.path.join(CSV_FOLDER, filenames_list[0])
-    configuration_dir = Path(configuration_dir).with_suffix('.json')
-    
-    initial_card_structure = create_initial_structure(headers_list[0], configuration_dir)
-    # print(f"Configuration saved at {configuration_dir}.")
-    print(json.dumps(initial_card_structure, indent=4))
-    generate_all_audio_files(configuration_dir, CSV_FOLDER, AUDIO_FOLDER)
+
+    for idx, (df, headers, filename) in enumerate(zip(dataframes_list, headers_list, filenames_list), start=1):
+        print(f"\n--- Processing DataFrame {idx}: {filename} ---")
+
+        # Merge duplicates if requested
+        merged_df = process_dataframe(df, args.merge_duplicates, args.key_column)
+
+        # Prepare JSON configuration path
+        configuration_dir = os.path.join(CSV_FOLDER, filename)
+        configuration_dir = Path(configuration_dir).with_suffix('.json')
+
+        # Create initial card structure
+        initial_card_structure = create_initial_structure(headers, configuration_dir)
+        print(json.dumps(initial_card_structure, indent=4))
+
+        # Generate audio from the merged DataFrame
+        chapter_id = idx  # Or some other logic to assign chapter IDs
+        generate_all_audio_from_df(merged_df, chapter_id, configuration_dir, AUDIO_FOLDER)
     
 elif multiple_csv_flag and args.same_structure and args.merge_duplicates:
     pass
