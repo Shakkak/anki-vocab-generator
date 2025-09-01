@@ -12,7 +12,7 @@ from pathlib import Path
 import argparse
 import json
 # --- lOCAL iMports ---
-from ankigen.ankigenclass import process_dataframe, AnkiCardGenerator, get_csv_informations, create_initial_structure, edit_card_structure, get_csv_files_windows_sorted_stdlib
+from ankigen.ankigenclass import merge_dataframe, AnkiCardGenerator, get_csv_informations, create_initial_structure, edit_card_structure, get_csv_files_windows_sorted_stdlib
 from tts_modules.kokoro import *
 from tts_modules.utils import *
 # === CONFIGURATION ===
@@ -86,7 +86,7 @@ elif multiple_csv_flag and args.same_structure and args.merge_duplicates:
         print(f"\n--- Processing DataFrame {idx}: {filename} ---")
 
         # Merge duplicates if requested
-        merged_df = process_dataframe(df, args.merge_duplicates, args.key_column)
+        merged_df = merge_dataframe(df, args.merge_duplicates, args.key_column)
 
         # Prepare JSON configuration path
         configuration_dir = os.path.join(CSV_FOLDER, filename)

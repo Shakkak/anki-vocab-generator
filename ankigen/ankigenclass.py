@@ -65,7 +65,7 @@ def get_csv_files_windows_sorted_stdlib(folder_path: str) -> List[Path]:
 
 
 
-def process_dataframe(df, merge_duplicates=False, key_column=None, delimiter=' # '):
+def merge_dataframe(df, merge_duplicates=False, key_column=None, delimiter=' # '):
     """
     Processes a DataFrame to optionally merge rows with duplicate values in a key column.
 
