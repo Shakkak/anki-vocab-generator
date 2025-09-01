@@ -61,6 +61,9 @@ def split_text_by_delimiter(text, delimiter="#"):
 
 
 # ---------- MAIN PROCESS ----------
+import numpy as np
+from pydub import AudioSegment
+
 def process_dataframe(df, chapter_id, columns_for_audio, audio_folders, voice_params):
     """
     Processes the DataFrame and generates audio files for configured columns.
@@ -81,11 +84,29 @@ def process_dataframe(df, chapter_id, columns_for_audio, audio_folders, voice_pa
             # One TTS call for all parts
             results = generate_batched_speech(voice_params["voice"], text_parts)
 
-            # Save each as MP3
+            # Save each as MP3 with proper normalization
             for part_idx, (txt, seg) in enumerate(results, start=1):
                 filename = f"ch{chapter_id}_r{row_idx}_c{col_name}_p{part_idx}.mp3"
                 output_path = Path(audio_folders["base"]) / filename
-                seg.export(output_path, format="mp3")
+
+                # Convert AudioSegment to numpy float32 array
+                samples = np.array(seg.get_array_of_samples()).astype(np.float32)
+
+                # Normalize
+                max_val = np.max(np.abs(samples))
+                if max_val > 0:
+                    samples /= max_val
+
+                # Convert back to int16 for pydub
+                seg_clean = AudioSegment(
+                    (samples * 32767).astype(np.int16).tobytes(),
+                    frame_rate=seg.frame_rate,
+                    sample_width=2,
+                    channels=seg.channels
+                )
+
+                seg_clean.export(output_path, format="mp3")
+
 
 
 def generate_all_audio_from_df(df, chapter_id, json_path, AUDIO_FOLDER):
