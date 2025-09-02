@@ -65,15 +65,29 @@ def get_csv_files_windows_sorted_stdlib(folder_path: str) -> List[Path]:
 
 
 
-def merge_dataframe(df, merge_duplicates=False, key_column=None, delimiter=' # '):
+import os
+import pandas as pd
+from pathlib import Path
+
+def merge_dataframe(
+    df,
+    merge_duplicates=False,
+    key_column=None,
+    delimiter=' # ',
+    output_dir=None,
+    filename_prefix=""
+):
     """
     Processes a DataFrame to optionally merge rows with duplicate values in a key column.
+    If output_dir is given, saves the merged DataFrame as a CSV file there.
 
     Args:
         df (pd.DataFrame): The input DataFrame.
         merge_duplicates (bool): If True, merge duplicate rows. If False, returns the original DataFrame.
         key_column (str): The name of the column to check for duplicates. Required if merge_duplicates is True.
         delimiter (str): The string used to join values from merged rows.
+        output_dir (str | Path, optional): Directory to save merged CSV. If None, CSV is not saved.
+        filename_prefix (str): Prefix for saved CSV filename.
 
     Returns:
         pd.DataFrame: A new DataFrame with duplicates merged, or the original DataFrame.
@@ -83,27 +97,29 @@ def merge_dataframe(df, merge_duplicates=False, key_column=None, delimiter=' # '
 
     if key_column is None:
         raise ValueError("A 'key_column' must be provided when 'merge_duplicates' is True.")
-        
     if key_column not in df.columns:
         raise ValueError(f"The key_column '{key_column}' does not exist in the DataFrame.")
 
-    # Convert all data to string type, filling NaNs with empty strings to avoid issues
+    # Fill NaNs and force strings
     df_str = df.fillna('').astype(str)
 
     def merge_cells(series):
-        # Filter out empty strings before joining
         return delimiter.join(item for item in series if item)
 
-    # All columns except the key column will be aggregated by the merge_cells function
     agg_funcs = {col: merge_cells for col in df_str.columns if col != key_column}
-    
-    # Group by the key column and apply the aggregation
     merged_df = df_str.groupby(key_column, as_index=False).agg(agg_funcs)
-    
-    # Ensure the column order matches the original DataFrame
-    merged_df = merged_df[df.columns]
+    merged_df = merged_df[df.columns]  # keep column order
+
+    # Save to CSV if requested
+    if output_dir is not None:
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)  # ensure folder exists
+        out_path = output_dir / f"{filename_prefix}.csv"
+        merged_df.to_csv(out_path, index=False, encoding="utf-8-sig")
+        print(f"✅ Merged DataFrame saved to {out_path}")
 
     return merged_df
+
 
 def save_structure_to_json(structure_data, csv_file_path):
     """
@@ -401,27 +417,46 @@ def _toggle_audio_flag(data):
             print("Invalid input. Please enter a number.\n")
             
 
-def edit_card_structure(card_data,csv_file_path):
+import json
+import copy
+from pathlib import Path
+
+def edit_card_structure(headers, json_path):
     """
-    Interactively edits a card structure and overwrites the saved file upon exit.
+    Loads a JSON structure, allows user to edit it, and saves the updated version.
 
     Args:
-        card_data (dict): The original card data structure to edit.
-        csv_file_path (str or Path): The path to the source CSV for saving the output file.
+        headers (list): Available headers from the CSV (not actively used here).
+        json_path (str or Path): Full path to the structure JSON file to edit.
 
     Returns:
-        dict: The modified card data structure.
+        dict or None: The modified structure if saved, else None.
     """
-    data = copy.deepcopy(card_data)
+    json_path = Path(json_path)
+    if not json_path.exists():
+        print(f"Error: JSON file '{json_path}' does not exist.")
+        return None
+
+    # Load the existing structure
+    try:
+        with open(json_path, 'r', encoding='utf-8') as f:
+            original_data = json.load(f)
+    except Exception as e:
+        print(f"Failed to load JSON: {e}")
+        return None
+
+    data = copy.deepcopy(original_data)
+
+    # Start editing loop
     while True:
-        print("\n======= Edit Card Structure Menu =======")
+        print(f"\n======= Edit Card Structure Menu ({json_path.name}) =======")
         _print_structure(data)
         print("1. Add Fields")
         print("2. Remove Fields")
         print("3. Reorder Fields")
         print("4. Toggle Audio Flag")
         print("5. Save and Exit")
-        choice = input("Enter your choice (1-5): ")
+        choice = input("Enter your choice (1-5): ").strip()
 
         if choice == '1':
             _add_field(data)
@@ -429,14 +464,27 @@ def edit_card_structure(card_data,csv_file_path):
             _remove_field(data)
         elif choice == '3':
             _reorder_fields(data)
-        elif choice == '3':
+        elif choice == '4':
             _toggle_audio_flag(data)
         elif choice == '5':
-            print("Structure saved.")
-            save_structure_to_json(data, csv_file_path)
-            return data
+            print(f"\nFinal structure before saving to {json_path.name}:")
+            _print_structure(data)
+            confirm = input("Save changes? (y/n): ").strip().lower()
+            if confirm == 'y':
+                try:
+                    with open(json_path, 'w', encoding='utf-8') as f:
+                        json.dump(data, f, indent=2, ensure_ascii=False)
+                    print(f"--> Structure saved to: {json_path}")
+                    return data
+                except Exception as e:
+                    print(f"Failed to save JSON: {e}")
+                    return None
+            else:
+                print("--> Changes discarded.")
+                return None
         else:
             print("Invalid choice, please try again.")
+
 
 class AnkiCardGenerator:
     """
@@ -454,20 +502,7 @@ class AnkiCardGenerator:
                                          Defaults to a default structure.
         """
         self.css = css
-        if initial_data is None:
-            self.card_data = {
-                'front': [
-                    {'type': 'Word', 'audio': True},
-                ],
-                'back': [
-                    {'type': 'Meaning_Definition', 'audio': True},
-                    {'type': 'Antonyms', 'audio': False},
-                    {'type': 'Related_Words_Notes', 'audio': True},
-                    {'type': 'Examples', 'audio': False},
-                ]
-            }
-        else:
-            self.card_data = initial_data
+        self.initial_data = initial_data
 
     def make_template(self, data):
         """

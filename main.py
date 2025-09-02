@@ -15,9 +15,57 @@ from ankigen.ankigenclass import (
     merge_dataframe,
     get_csv_informations,
     create_initial_structure,
+    edit_card_structure,
     get_csv_files_windows_sorted_stdlib
 )
+from ankigen.anki_deck_generator import *
 from tts_modules.utils import generate_all_audio_from_df, copy_json_for_same_structure
+
+
+
+CARD_CSS = '''
+        .card {
+            font-family: Arial, sans-serif;
+            font-size: 22px;
+            text-align: center;
+            color: #f0f0f0;
+            background-color: #2c2c2c;
+        }
+        .card-front .word {
+            font-size: 52px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: #FFFFFF;
+        }
+        .card-back .front-word {
+            font-size: 36px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #FFFFFF;
+        }
+        hr {
+            border-color: #555;
+        }
+        .section {
+            margin: 15px auto;
+            max-width: 90%;
+            text-align: left;
+        }
+        .label {
+            font-weight: bold;
+            color: #ccc;
+            font-size: 18px;
+            margin-bottom: 5px;
+        }
+        .content, .examples {
+            line-height: 1.5;
+            text-align: left;
+        }
+        .examples {
+            white-space: pre-wrap;
+            color: #89cff0;
+        }
+    '''
 
 # === CLI ARGUMENTS ===
 parser = argparse.ArgumentParser(description="Generate Anki decks with optional TTS audio.")
@@ -86,9 +134,10 @@ if multiple_csv_flag and args.same_structure and args.merge_duplicates:
     first_df, first_headers, first_filename = dataframes_list[0], headers_list[0], filenames_list[0]
     first_config_path = Path(CSV_FOLDER, first_filename).with_suffix(".json")
 
-    initial_card_structure = create_initial_structure(first_headers, first_config_path)
-    print(json.dumps(initial_card_structure, indent=4))
+    # initial_card_structure = create_initial_structure(first_headers, first_config_path)
+    # print(json.dumps(initial_card_structure, indent=4))
 
+    # edited_version = edit_card_structure(headers_list[0], first_config_path)
     # If same_structure: copy that JSON for the rest
     if args.same_structure:
         copy_json_for_same_structure(first_config_path, filenames_list)
@@ -97,13 +146,25 @@ if multiple_csv_flag and args.same_structure and args.merge_duplicates:
     for idx, (df, headers, filename) in enumerate(zip(dataframes_list, headers_list, filenames_list), start=1):
         print(f"\n--- Processing DataFrame {idx}: {filename} ---")
 
-        merged_df = merge_dataframe(df, args.merge_duplicates, args.key_column)
+        merged_df = merge_dataframe(df, args.merge_duplicates, args.key_column, delimiter=" # ", output_dir= "./input/merged/", filename_prefix=filename[:-4])
         config_path = Path(CSV_FOLDER, filename).with_suffix(".json")
 
         # Generate audio for this DataFrame
         chapter_id = idx
-        generate_all_audio_from_df(merged_df, chapter_id, config_path, AUDIO_FOLDER)
+        # generate_all_audio_from_df(merged_df, chapter_id, config_path, AUDIO_FOLDER)
 
+
+    generator = AnkiDeckGenerator(
+        json_structure_path=first_config_path,
+        key_column=args.key_column,
+        css=CARD_CSS
+    )
+    generator.generate_deck(
+        csv_folder='./input/merged/',
+        audio_folder=AUDIO_FOLDER,
+        output_filename=OUTPUT_FILENAME,
+        deck_name_prefix=DECK_NAME_PREFIX
+    )
 
 elif multiple_csv_flag:
     print("⚠️ Multiple CSVs found, but conditions (--same_structure and --merge_duplicates) not satisfied.")
