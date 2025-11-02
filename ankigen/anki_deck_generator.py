@@ -19,7 +19,7 @@ class AnkiDeckGenerator:
     It handles merged rows and dynamically maps audio files.
     """
 
-    def __init__(self, json_structure_path, key_column, css):
+    def __init__(self, json_structure_path, key_column, css, include_front_on_back=True):
         """
         Initializes the AnkiDeckGenerator.
         """
@@ -27,74 +27,79 @@ class AnkiDeckGenerator:
             self.structure = json.load(f)
         self.key_column = key_column
         self.css = css
+        self.include_front_on_back = include_front_on_back
         self.model = self._create_dynamic_model()
 
     def _create_dynamic_model(self):
         """
         Dynamically creates a genanki.Model based on the JSON structure.
-        (This version adds titles/labels to the front of the card).
+        (This version conditionally includes the front content on the back).
         """
         all_fields = set()
         for side in ['front', 'back']:
             for item in self.structure.get(side, []):
                 all_fields.add(item['type'])
 
+        # --- Create Model Fields ---
         model_fields = []
+        fields_with_audio = set()
         for field_name in sorted(list(all_fields)):
             sanitized_name = field_name.replace(' ', '_')
             model_fields.append({'name': sanitized_name})
-            has_audio = any(
+            
+            has_audio_in_json = any(
                 item.get('audio') and item.get('type') == field_name
                 for side in ['front', 'back']
                 for item in self.structure.get(side, [])
             )
-            if has_audio:
+            if has_audio_in_json:
                 model_fields.append({'name': f"{sanitized_name}_Audio"})
+                fields_with_audio.add(sanitized_name)
 
-        # --- Generate qfmt (Front Template) - UPDATED FOR LABELS ---
+        # --- Generate qfmt (Front Template) ---
         qfmt = '<div class="card-front">\n'
+        # ... (The qfmt generation code is unchanged)
         for item in self.structure.get('front', []):
-            field_type = item['type'] # This is our title/label
+            field_type = item['type']
             sanitized_name = field_type.replace(' ', '_')
-            
-            # Create a container for each item on the front
-            qfmt += '    <div class="front-section">\n'
-            # Add the label
-            qfmt += f'        <div class="front-label">{field_type}</div>\n'
-            # Add the content
-            qfmt += f'        <div class="front-content {sanitized_name.lower()}">{{{{{sanitized_name}}}}}</div>\n'
-            # Add the audio if it exists
+            content_with_audio = '{{' + sanitized_name + '}}'
             if item.get('audio'):
-                qfmt += f'        <div class="audio">{{{{{sanitized_name}_Audio}}}}</div>\n'
+                audio_field = '{{' + sanitized_name + '_Audio}}'
+                content_with_audio += f' {audio_field}'
+            qfmt += '    <div class="front-section">\n'
+            qfmt += f'        <div class="front-label">{field_type}</div>\n'
+            qfmt += f'        <div class="front-content {sanitized_name.lower()}">{content_with_audio}</div>\n'
             qfmt += '    </div>\n'
         qfmt += '</div>'
 
 
-        # --- Generate afmt (Back Template) - No changes needed here ---
+        # --- Generate afmt (Back Template) ---
         afmt = '<div class="card-back">\n'
-        afmt += '    <div class="front-word">{{FrontSide}}</div>\n'
-        afmt += '    <hr>\n'
+        # *** THE CONDITIONAL LOGIC IS HERE ***
+        if self.include_front_on_back:
+            afmt += '    {{FrontSide}}\n'
+            afmt += '    <hr>\n'
+        # *** END OF CHANGE ***
+
         for item in self.structure.get('back', []):
             field_type = item['type']
             sanitized_name = field_type.replace(' ', '_')
-            label = field_type
             
             opening_tag = '{{#' + sanitized_name + '}}'
             closing_tag = '{{/' + sanitized_name + '}}'
-            content_field = '{{' + sanitized_name + '}}'
+            
+            content_with_audio = '{{' + sanitized_name + '}}'
+            if sanitized_name in fields_with_audio:
+                audio_field = '{{' + sanitized_name + '_Audio}}'
+                content_with_audio += f' {audio_field}'
 
             afmt += f'    {opening_tag}\n'
-            afmt += '    <div class="section">\n'
-            afmt += f'        <div class="label">{label}:</div>\n'
-            afmt += f'        <div class="content">{content_field}'
-            if item.get('audio'):
-                audio_field = '{{' + sanitized_name + '_Audio}}'
-                afmt += f' {audio_field}'
-            afmt += '</div>\n'
+            afmt += '    <div class="front-section">\n'
+            afmt += f'        <div class="front-label">{field_type}</div>\n'
+            afmt += f'        <div class="front-content {sanitized_name.lower()}">{content_with_audio}</div>\n'
             afmt += '    </div>\n'
             afmt += f'    {closing_tag}\n'
         afmt += '</div>'
-
 
         model_id = abs(hash(json.dumps(self.structure, sort_keys=True) + self.css)) % (1 << 63)
         
