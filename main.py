@@ -162,7 +162,7 @@ if multiple_csv_flag and args.same_structure and args.merge_duplicates:
 
         # Generate audio for this DataFrame
         chapter_id = idx
-        # generate_all_audio_from_df(merged_df, chapter_id, config_path, AUDIO_FOLDER)
+        generate_all_audio_from_df(merged_df, chapter_id, config_path, AUDIO_FOLDER)
 
 
     generator = AnkiDeckGenerator(
@@ -207,7 +207,7 @@ else:
         print(config_path)
         # Generate audio for this DataFrame
         chapter_id = idx
-        # generate_all_audio_from_df(merged_df, chapter_id, config_path, AUDIO_FOLDER)
+        generate_all_audio_from_df(df, chapter_id, config_path, AUDIO_FOLDER)
 
 
     generator = AnkiDeckGenerator(
