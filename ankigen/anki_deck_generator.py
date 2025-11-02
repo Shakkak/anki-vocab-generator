@@ -209,17 +209,19 @@ class AnkiDeckGenerator:
                         
                         if field_name.endswith('_Audio'):
                             base_name = field_name[:-6]
-                            audio_filename = f"{csv_file.stem}_r{row_idx}_c{base_name}_p{part_num}.mp3"
+                            audio_filename = f"ch{part_num}_r{row_idx}_c{base_name}_p{part_num}.mp3"
                             audio_path = os.path.join(audio_folder, audio_filename)
-                            
+                            # print(f"Looking for audio file: {audio_filename}")
                             if os.path.exists(audio_path):
                                 media_files.add(audio_path)
                                 note_fields.append(f"[sound:{audio_filename}]")
                             else:
                                 note_fields.append('')
+                                # print(f"⚠️ Warning: Audio file not found: {audio_path}")
                         else:
                             original_col_name = field_name.replace('_', ' ')
                             note_fields.append(processed_row.get(original_col_name, ''))
+                            # print(f"Field '{field_name}': '{processed_row.get(original_col_name, '')}'")
                     
                     note = genanki.Note(model=self.model, fields=note_fields)
                     deck.add_note(note)
