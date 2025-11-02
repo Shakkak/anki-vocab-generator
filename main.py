@@ -23,49 +23,60 @@ from tts_modules.utils import generate_all_audio_from_df, copy_json_for_same_str
 
 
 
+# --- Card Styling (CSS) ---
 CARD_CSS = '''
-        .card {
-            font-family: Arial, sans-serif;
-            font-size: 22px;
-            text-align: center;
-            color: #f0f0f0;
-            background-color: #2c2c2c;
-        }
-        .card-front .word {
-            font-size: 52px;
-            font-weight: bold;
-            margin-bottom: 20px;
-            color: #FFFFFF;
-        }
-        .card-back .front-word {
-            font-size: 36px;
-            font-weight: bold;
-            margin-bottom: 10px;
-            color: #FFFFFF;
-        }
-        hr {
-            border-color: #555;
-        }
-        .section {
-            margin: 15px auto;
-            max-width: 90%;
-            text-align: left;
-        }
-        .label {
-            font-weight: bold;
-            color: #ccc;
-            font-size: 18px;
-            margin-bottom: 5px;
-        }
-        .content, .examples {
-            line-height: 1.5;
-            text-align: left;
-        }
-        .examples {
-            white-space: pre-wrap;
-            color: #89cff0;
-        }
-    '''
+    .front-section {
+        margin-bottom: 25px; /* Adds space between items */
+    }
+    .front-label {
+        font-size: 20px;
+        font-weight: bold;
+        color: #89cff0; /* Light blue color for the title */
+        margin-bottom: 8px;
+    }
+    .front-content {
+        font-size: 18px;
+        font-weight: bold;
+        color: #FFFFFF; /* Main content is bright white */
+    }
+    .card {
+        font-family: Arial, sans-serif;
+        font-size: 22px;
+        text-align: center; /* This centers everything by default */
+        color: #f0f0f0;
+        background-color: #2c2c2c;
+    }
+
+
+    .section {
+        margin: 15px auto;
+        max-width: 90%;
+        /* 
+         *  ALIGNMENT CHOICE: By default, we left-align text in sections for readability.
+         *  To CENTER the label and content text, delete the 'text-align: left;' line below.
+         */
+        
+    }
+    .label {
+        font-weight: bold;
+        color: #ccc;
+        font-size: 18px;
+        margin-bottom: 5px;
+    }
+    .content {
+        line-height: 1.5;
+        /* 
+         *  NEW FIX (Problem #1): This next line is crucial. 
+         *  'pre-wrap' tells Anki to preserve line breaks and spaces from your CSV.
+         *  This will fix the issue with your data containing '|' and newlines.
+         */
+        white-space: pre-wrap; 
+    }
+    /* This class is now redundant since .content handles it, but we can keep it for specific styling */
+    .examples {
+        color: #89cff0;
+    }
+'''
 
 # === CLI ARGUMENTS ===
 parser = argparse.ArgumentParser(description="Generate Anki decks with optional TTS audio.")
@@ -193,7 +204,7 @@ else:
 
         # merged_df = merge_dataframe(df, args.merge_duplicates, args.key_column, delimiter=" # ", output_dir= "./input/merged/", filename_prefix=filename[:-4])
         config_path = Path(CSV_FOLDER, filename).with_suffix(".json")
-
+        print(config_path)
         # Generate audio for this DataFrame
         chapter_id = idx
         # generate_all_audio_from_df(merged_df, chapter_id, config_path, AUDIO_FOLDER)
@@ -201,11 +212,11 @@ else:
 
     generator = AnkiDeckGenerator(
         json_structure_path=first_config_path,
-        #key_column=args.key_column,
+        key_column=args.key_column,
         css=CARD_CSS
     )
     generator.generate_deck(
-        csv_folder='./input/merged/',
+        csv_folder='./input/',
         audio_folder=AUDIO_FOLDER,
         output_filename=OUTPUT_FILENAME,
         deck_name_prefix=DECK_NAME_PREFIX

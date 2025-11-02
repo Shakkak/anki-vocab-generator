@@ -507,6 +507,7 @@ class AnkiCardGenerator:
     def make_template(self, data):
         """
         Generates the Anki template from the given data structure.
+        This version adds titles to the front and fixes back template generation.
 
         Args:
             data (dict): The data structure defining the card's front and back.
@@ -514,14 +515,24 @@ class AnkiCardGenerator:
         Returns:
             dict: A dictionary containing the template name, qfmt, and afmt.
         """
+        # --- Generate qfmt (Front Template) - UPDATED FOR LABELS ---
         qfmt = '<div class="card-front">\n'
         for item in data.get('front', []):
-            field_name = item.get('type')
-            qfmt += f'    <div class="{field_name.lower()}">{{{{{field_name}}}}}</div>\n'
+            field_name = item.get('type') # This will be the title
+            
+            # Create a container for each item on the front
+            qfmt += '    <div class="front-section">\n'
+            # Add the label/title
+            qfmt += f'        <div class="front-label">{field_name}</div>\n'
+            # Add the content
+            qfmt += f'        <div class="front-content {field_name.lower()}">{{{{{field_name}}}}}</div>\n'
+            # Add audio if it exists
             if item.get('audio'):
-                qfmt += f'    <div class="audio">{{{{{field_name}_Audio}}}}</div>\n'
+                qfmt += f'        <div class="audio">{{{{{field_name}_Audio}}}}</div>\n'
+            qfmt += '    </div>\n'
         qfmt += '</div>'
 
+        # --- Generate afmt (Back Template) - CORRECTED ---
         afmt = '<div class="card-back">\n'
         afmt += '    <div class="front-word">{{FrontSide}}</div>\n'
         afmt += '    <hr>\n'
@@ -530,15 +541,22 @@ class AnkiCardGenerator:
             field_name = item.get('type')
             label = field_name.replace('_', ' ')
             
-            afmt += f'    {{#{{{field_name}}}}}\n'
+            # Build template tags safely to avoid f-string formatting issues
+            opening_tag = '{{#' + field_name + '}}'
+            closing_tag = '{{/' + field_name + '}}'
+            content_field = '{{' + field_name + '}}'
+            
+            afmt += f'    {opening_tag}\n'
             afmt += '    <div class="section">\n'
             afmt += f'        <div class="label">{label}:</div>\n'
-            afmt += f'        <div class="content">{{{{{field_name}}}}}'
+            afmt += f'        <div class="content">{content_field}'
             if item.get('audio'):
-                afmt += f' {{{{Audio}}}}'
+                # Correctly reference the specific audio field, not a generic one
+                audio_field = '{{' + field_name + '_Audio}}'
+                afmt += f' {audio_field}'
             afmt += '</div>\n'
             afmt += '    </div>\n'
-            afmt += f'    {{/{{{field_name}}}}}\n'
+            afmt += f'    {closing_tag}\n'
         afmt += '</div>'
         
         return {
@@ -546,7 +564,8 @@ class AnkiCardGenerator:
             'qfmt': qfmt,
             'afmt': afmt,
         }
-
+        
+        
     def _draw_card(self, title, items, width=50):
         """Helper function to draw a character-based card."""
         top_bottom_border = '#' * width
