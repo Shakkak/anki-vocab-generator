@@ -191,7 +191,7 @@ else:
     for idx, (df, headers, filename) in enumerate(zip(dataframes_list, headers_list, filenames_list), start=1):
         print(f"\n--- Processing DataFrame {idx}: {filename} ---")
 
-        merged_df = merge_dataframe(df, args.merge_duplicates, args.key_column, delimiter=" # ", output_dir= "./input/merged/", filename_prefix=filename[:-4])
+        # merged_df = merge_dataframe(df, args.merge_duplicates, args.key_column, delimiter=" # ", output_dir= "./input/merged/", filename_prefix=filename[:-4])
         config_path = Path(CSV_FOLDER, filename).with_suffix(".json")
 
         # Generate audio for this DataFrame
@@ -201,7 +201,7 @@ else:
 
     generator = AnkiDeckGenerator(
         json_structure_path=first_config_path,
-        key_column=args.key_column,
+        #key_column=args.key_column,
         css=CARD_CSS
     )
     generator.generate_deck(
