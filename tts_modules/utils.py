@@ -61,7 +61,7 @@ def process_dataframe(df, chapter_id, columns_for_audio, audio_folders, voice_pa
     """
     Process DataFrame and generate audio for each cell using batched TTS.
     """
-    for row_idx, row in enumerate(tqdm(df.iterrows(), total=len(df), desc=f"Chapter {chapter_id}"), start=1):
+    for row_idx, row in enumerate(tqdm(df.iterrows(), total=len(df), desc=f"CSV {chapter_id}"), start=1):
         row = row[1]  # unpack iterrows()
         for col_name in columns_for_audio:
             value = row[col_name]
