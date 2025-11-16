@@ -5,228 +5,309 @@ import csv
 import json
 import genanki
 from pathlib import Path
-import random
 
-import os
-import json
-import csv
-from pathlib import Path
-import genanki
 
 class AnkiDeckGenerator:
     """
     Generates Anki decks from CSV files with a structure defined by a JSON file.
-    It handles merged rows and dynamically maps audio files.
+    Supports merged CSV rows (merge_duplicates=True), producing a single card
+    whose back side repeats all split segments separated by "-----------".
     """
 
-    def __init__(self, json_structure_path, key_column, css, include_front_on_back=True):
+    def __init__(self, json_structure_path, key_column, css, include_front_on_back=True, merge_duplicates=False):
         """
-        Initializes the AnkiDeckGenerator.
+        merge_duplicates controls MERGED CARD MODE.
+        If True → one card per merged CSV row, repeated blocks on card back.
         """
         with open(json_structure_path, 'r', encoding='utf-8') as f:
             self.structure = json.load(f)
+
         self.key_column = key_column
         self.css = css
         self.include_front_on_back = include_front_on_back
+
+        # THIS IS THE KEY NEW FLAG
+        self.merge_mode = merge_duplicates
+
         self.model = self._create_dynamic_model()
 
+    # ----------------------------------------------------------
+    # Utility: detect autoplay existence in JSON template
+    # ----------------------------------------------------------
+    def _side_has_autoplay(self, side_items):
+        return any(item.get("autoplay") for item in side_items)
+
+    # ----------------------------------------------------------
+    # Create MODEL dynamically
+    # ----------------------------------------------------------
     def _create_dynamic_model(self):
         """
-        Dynamically creates a genanki.Model based on the JSON structure.
-        (This version conditionally includes the front content on the back).
+        If merge_mode=False → normal behavior (individual fields per column)
+        If merge_mode=True  → add "MergedBack" field and simplify back template
         """
         all_fields = set()
-        for side in ['front', 'back']:
-            for item in self.structure.get(side, []):
-                all_fields.add(item['type'])
 
-        # --- Create Model Fields ---
+        # In merged mode, the back is replaced by one large field,
+        # but the front stays normal.
+        for item in self.structure.get("front", []):
+            all_fields.add(item["type"])
+
         model_fields = []
         fields_with_audio = set()
-        for field_name in sorted(list(all_fields)):
-            sanitized_name = field_name.replace(' ', '_')
-            model_fields.append({'name': sanitized_name})
-            
-            has_audio_in_json = any(
-                item.get('audio') and item.get('type') == field_name
-                for side in ['front', 'back']
-                for item in self.structure.get(side, [])
-            )
-            if has_audio_in_json:
-                model_fields.append({'name': f"{sanitized_name}_Audio"})
-                fields_with_audio.add(sanitized_name)
 
-        # --- Generate qfmt (Front Template) ---
+        # FRONT fields have audio mapping as usual
+        for field_name in sorted(list(all_fields)):
+            sanitized = field_name.replace(" ", "_")
+            model_fields.append({"name": sanitized})
+
+            # add audio field if needed
+            front_has_audio = any(
+                item.get('audio') and item.get('type') == field_name
+                for item in self.structure.get("front", [])
+            )
+            if front_has_audio:
+                model_fields.append({"name": f"{sanitized}_Audio"})
+                fields_with_audio.add(sanitized)
+
+        # If merge card mode → add a single "MergedBack" field
+        if self.merge_mode:
+            model_fields.append({"name": "MergedBack"})
+        else:
+            # Normal mode → include all back fields as separate fields
+            for item in self.structure.get("back", []):
+                field_name = item["type"]
+                sanitized = field_name.replace(" ", "_")
+                if sanitized not in [f["name"] for f in model_fields]:
+                    model_fields.append({"name": sanitized})
+
+                if item.get("audio"):
+                    model_fields.append({"name": f"{sanitized}_Audio"})
+                    fields_with_audio.add(sanitized)
+
+        # AUTOPLAY flags
+        front_autoplay = self._side_has_autoplay(self.structure.get("front", []))
+        back_autoplay = self._side_has_autoplay(self.structure.get("back", []))
+
+        # ----------------------------------------------------------
+        # FRONT TEMPLATE (same always)
+        # ----------------------------------------------------------
         qfmt = '<div class="card-front">\n'
-        # ... (The qfmt generation code is unchanged)
-        for item in self.structure.get('front', []):
-            field_type = item['type']
-            sanitized_name = field_type.replace(' ', '_')
-            content_with_audio = '{{' + sanitized_name + '}}'
-            if item.get('audio'):
-                audio_field = '{{' + sanitized_name + '_Audio}}'
-                content_with_audio += f' {audio_field}'
-            qfmt += '    <div class="front-section">\n'
-            qfmt += f'        <div class="front-label">{field_type}</div>\n'
-            qfmt += f'        <div class="front-content {sanitized_name.lower()}">{content_with_audio}</div>\n'
-            qfmt += '    </div>\n'
+        for item in self.structure.get("front", []):
+            ftype = item["type"]
+            sanitized = ftype.replace(" ", "_")
+            content = "{{" + sanitized + "}}"
+            if sanitized in fields_with_audio:
+                content += " {{%s_Audio}}" % sanitized
+
+            qfmt += (
+                '    <div class="front-section">\n'
+                f'        <div class="front-label">{ftype}</div>\n'
+                f'        <div class="front-content {sanitized.lower()}">{content}</div>\n'
+                '    </div>\n'
+            )
+
+        if front_autoplay:
+            qfmt += '    <span id="autoplay_front">{{de_audio}}</span>\n'
+
         qfmt += '</div>'
 
+        # ----------------------------------------------------------
+        # BACK TEMPLATE
+        # ----------------------------------------------------------
 
-        # --- Generate afmt (Back Template) ---
-        afmt = '<div class="card-back">\n'
-        # *** THE CONDITIONAL LOGIC IS HERE ***
-        if self.include_front_on_back:
+        if self.merge_mode:
+            # MERGED CARD MODE — simplified template
+            afmt = '<div class="card-back">\n'
             afmt += '    {{FrontSide}}\n'
             afmt += '    <hr>\n'
-        # *** END OF CHANGE ***
+            afmt += '    {{MergedBack}}\n'
+            if back_autoplay:
+                afmt += '    <span id="autoplay_back">{{de_audio}}</span>\n'
+            afmt += '</div>'
 
-        for item in self.structure.get('back', []):
-            field_type = item['type']
-            sanitized_name = field_type.replace(' ', '_')
-            
-            opening_tag = '{{#' + sanitized_name + '}}'
-            closing_tag = '{{/' + sanitized_name + '}}'
-            
-            content_with_audio = '{{' + sanitized_name + '}}'
-            if sanitized_name in fields_with_audio:
-                audio_field = '{{' + sanitized_name + '_Audio}}'
-                content_with_audio += f' {audio_field}'
+        else:
+            # NORMAL MODE — use JSON structure as usual
+            afmt = '<div class="card-back">\n'
+            if self.include_front_on_back:
+                afmt += '    {{FrontSide}}\n'
+                afmt += '    <hr>\n'
 
-            afmt += f'    {opening_tag}\n'
-            afmt += '    <div class="front-section">\n'
-            afmt += f'        <div class="front-label">{field_type}</div>\n'
-            afmt += f'        <div class="front-content {sanitized_name.lower()}">{content_with_audio}</div>\n'
-            afmt += '    </div>\n'
-            afmt += f'    {closing_tag}\n'
-        afmt += '</div>'
+            for item in self.structure.get("back", []):
+                ftype = item["type"]
+                sanitized = ftype.replace(" ", "_")
+                open_tag = "{{#" + sanitized + "}}"
+                close_tag = "{{/" + sanitized + "}}"
 
+                content = "{{" + sanitized + "}}"
+                if sanitized in fields_with_audio:
+                    content += " {{%s_Audio}}" % sanitized
+
+                afmt += (
+                    f'    {open_tag}\n'
+                    '    <div class="front-section">\n'
+                    f'        <div class="front-label">{ftype}</div>\n'
+                    f'        <div class="front-content {sanitized.lower()}">{content}</div>\n'
+                    '    </div>\n'
+                    f'    {close_tag}\n'
+                )
+
+            if back_autoplay:
+                afmt += '    <span id="autoplay_back">{{de_audio}}</span>\n'
+            afmt += '</div>'
+
+        # ----------------------------------------------------------
+        # Return MODEL
+        # ----------------------------------------------------------
         model_id = abs(hash(json.dumps(self.structure, sort_keys=True) + self.css)) % (1 << 63)
-        
+
         return genanki.Model(
             model_id,
-            'Dynamic Vocabulary Model',
+            "Dynamic Vocabulary Model",
             fields=model_fields,
             templates=[{
-                'name': 'Dynamic Card',
-                'qfmt': qfmt,
-                'afmt': afmt,
+                "name": "Dynamic Card",
+                "qfmt": qfmt,
+                "afmt": afmt
             }],
             css=self.css
         )
 
+    # ----------------------------------------------------------
+    # Split merged cell values (same as before)
+    # ----------------------------------------------------------
     def _process_row(self, row):
-        """
-        Processes a single CSV row, splitting merged data into multiple note definitions.
-        (This method is rewritten for clarity and correctness)
-        """
-        # Step 1: Split all relevant columns into lists of values
+        """Return list of split row dictionaries."""
         split_data = {}
         max_parts = 1
+
         for key, value in row.items():
             if key != self.key_column and value:
-                parts = [p.strip() for p in value.split('#')]
+                parts = [p.strip() for p in value.split("#")]
                 split_data[key] = parts
                 max_parts = max(max_parts, len(parts))
             else:
-                # Store even the key_column and empty values
                 split_data[key] = [value.strip() if value else ""]
 
-        # Step 2: Create the list of final rows for cards
-        processed_rows = []
+        processed = []
         for i in range(max_parts):
-            new_row = {}
-            # The key_column value is the same for all split cards
-            new_row[self.key_column] = split_data[self.key_column][0]
+            new_r = {}
+            new_r[self.key_column] = split_data[self.key_column][0]
 
             for key, values in split_data.items():
                 if key == self.key_column:
-                    continue # Already handled
-                
-                # If the list of values for this key has an item at the current index, use it.
-                # Otherwise, use an empty string. This prevents data duplication.
-                if i < len(values):
-                    new_row[key] = values[i]
-                else:
-                    new_row[key] = ''
-            processed_rows.append(new_row)
-            
-        return processed_rows
+                    continue
+                new_r[key] = values[i] if i < len(values) else ""
+            processed.append(new_r)
 
+        return processed
+
+    # ----------------------------------------------------------
+    # Generate DECK
+    # ----------------------------------------------------------
     def generate_deck(self, csv_folder, audio_folder, output_filename, deck_name_prefix):
-        """
-        Generates the complete Anki deck package.
-        - If multiple CSVs exist, creates a sub-deck for each CSV file.
-        - If only one CSV exists, creates a single main deck.
-        """
-        # This method was already well-structured and required no changes.
-        # The fixes in the other methods will resolve the deck generation issues.
         package = genanki.Package([])
         media_files = set()
 
-        csv_files = sorted(Path(csv_folder).glob('*.csv'))
-        
+        csv_files = sorted(Path(csv_folder).glob("*.csv"))
         if not csv_files:
-            print("No CSV files found to build the deck.")
+            print("No CSVs found.")
             return
 
-        is_single_deck = len(csv_files) == 1
-        
-        if is_single_deck:
+        if len(csv_files) == 1:
             deck_name = deck_name_prefix
             deck = genanki.Deck(abs(hash(deck_name)) % (10**10), deck_name)
             self._populate_deck(deck, csv_files[0], audio_folder, media_files)
             package.decks.append(deck)
-            print(f"Found one CSV file. Building single deck: '{deck_name}'")
         else:
-            print(f"Found {len(csv_files)} CSV files. Building sub-decks...")
             for csv_file in csv_files:
-                subdeck_name = f"{deck_name_prefix}::{csv_file.stem}"
-                subdeck = genanki.Deck(abs(hash(subdeck_name)) % (10**10), subdeck_name)
+                sdname = f"{deck_name_prefix}::{csv_file.stem}"
+                subdeck = genanki.Deck(abs(hash(sdname)) % (10**10), sdname)
                 self._populate_deck(subdeck, csv_file, audio_folder, media_files)
                 package.decks.append(subdeck)
-                print(f"- Created sub-deck: '{subdeck_name}'")
 
         package.media_files = list(media_files)
         package.write_to_file(output_filename)
-        
-        num_decks = len(package.decks)
-        deck_type = "sub-deck" if not is_single_deck else "deck"
-        if not is_single_deck:
-            deck_type += "s"
-            
-        print(f"\n✅ Deck exported successfully to '{output_filename}' with {num_decks} {deck_type}.")
 
+    # ----------------------------------------------------------
+    # Populate DECK with notes
+    # ----------------------------------------------------------
     def _populate_deck(self, deck, csv_file, audio_folder, media_files):
-        """Helper function to process a single CSV and add notes to a deck."""
-        with open(csv_file, newline='', encoding='utf-8') as f:
+        with open(csv_file, newline="", encoding="utf-8") as f:
             reader = csv.DictReader(f)
+
             for row_idx, row in enumerate(reader, 1):
                 if not row.get(self.key_column):
                     continue
 
                 processed_rows = self._process_row(row)
 
-                for part_num, processed_row in enumerate(processed_rows, 1):
+                if self.merge_mode:
+                    # ------------------------------------------------------
+                    # MERGED CARD MODE (Option A)
+                    # ONE NOTE per original CSV row
+                    # ------------------------------------------------------
+                    blocks = []
+                    for prow in processed_rows:
+                        block_html = []
+                        for item in self.structure.get("back", []):
+                            ftype = item["type"]
+                            val = prow.get(ftype, "")
+                            sanitized = ftype.replace(" ", "_")
+
+                            html = (
+                                '<div class="front-section">\n'
+                                f'  <div class="front-label">{ftype}</div>\n'
+                                f'  <div class="front-content {sanitized.lower()}">{val}</div>\n'
+                                '</div>'
+                            )
+                            block_html.append(html)
+
+                        blocks.append("\n".join(block_html))
+
+                    merged_html = "\n-----------\n".join(blocks)
+
+                    # Build fields for note
                     note_fields = []
-                    for model_field in self.model.fields:
-                        field_name = model_field['name']
-                        
-                        if field_name.endswith('_Audio'):
-                            base_name = field_name[:-6]
-                            audio_filename = f"ch{part_num}_r{row_idx}_c{base_name}_p{part_num}.mp3"
-                            audio_path = os.path.join(audio_folder, audio_filename)
-                            # print(f"Looking for audio file: {audio_filename}")
-                            if os.path.exists(audio_path):
-                                media_files.add(audio_path)
+                    for mf in self.model.fields:
+                        name = mf["name"]
+                        if name == "MergedBack":
+                            note_fields.append(merged_html)
+                        elif name.endswith("_Audio"):
+                            base = name[:-6]
+                            # DO NOT load audio for merged mode (left intact but blank)
+                            note_fields.append("")
+                        else:
+                            col = name.replace("_", " ")
+                            note_fields.append(processed_rows[0].get(col, ""))
+
+                    note = genanki.Note(
+                        model=self.model,
+                        fields=note_fields
+                    )
+                    deck.add_note(note)
+                    continue
+
+                # ------------------------------------------------------
+                # NORMAL MODE (unchanged)
+                # ------------------------------------------------------
+                for part_num, prow in enumerate(processed_rows, 1):
+                    note_fields = []
+                    for mf in self.model.fields:
+                        name = mf["name"]
+
+                        if name.endswith("_Audio"):
+                            base = name[:-6]
+                            audio_filename = f"ch{part_num}_r{row_idx}_c{base}_p{part_num}.mp3"
+                            path = os.path.join(audio_folder, audio_filename)
+
+                            if os.path.exists(path):
+                                media_files.add(path)
                                 note_fields.append(f"[sound:{audio_filename}]")
                             else:
-                                note_fields.append('')
-                                # print(f"⚠️ Warning: Audio file not found: {audio_path}")
+                                note_fields.append("")
                         else:
-                            original_col_name = field_name.replace('_', ' ')
-                            note_fields.append(processed_row.get(original_col_name, ''))
-                            # print(f"Field '{field_name}': '{processed_row.get(original_col_name, '')}'")
-                    
+                            col = name.replace("_", " ")
+                            note_fields.append(prow.get(col, ""))
+
                     note = genanki.Note(model=self.model, fields=note_fields)
                     deck.add_note(note)

@@ -177,7 +177,8 @@ if multiple_csv_flag and args.same_structure and args.merge_duplicates:
         json_structure_path=first_config_path,
         key_column=args.key_column,
         css=CARD_CSS,
-        include_front_on_back= args.include_front_on_back
+        include_front_on_back= args.include_front_on_back,
+        merge_duplicates=args.merge_duplicates
     )
     generator.generate_deck(
         csv_folder='./input/merged/',
