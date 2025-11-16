@@ -180,39 +180,48 @@ def _display_creation_state(available_headers, new_structure):
         print(f"  - {field['type']}{audio_str}")
     print("="*50 + "\n")
 
+
 def _assign_field_with_duplicates(side, new_structure, available_headers):
-    """Helper function to assign headers to a side in a loop."""
     while True:
-        # Display state inside the loop so the user sees updates
         _display_creation_state(available_headers, new_structure)
-        
+
         if not available_headers:
             print("There are no headers available to add.")
             input("Press Enter to return to the main menu...")
             return
 
+        choice_str = input(f"Enter the number of the header to add to the '{side}' (or 'exit' to return to menu): ")
+        if choice_str.lower() == 'exit':
+            return
+
         try:
-            choice_str = input(f"Enter the number of the header to add to the '{side}' (or 'exit' to return to menu): ")
-            if choice_str.lower() == 'exit':
-                return # Exit this function, returning to the main creation menu
-            
             choice = int(choice_str)
-            if not (1 <= choice <= len(available_headers)):
-                print("Invalid number. Please choose from the list.")
-                continue
-
-            chosen_header = available_headers[choice - 1]
-
-            while True:
-                has_audio = input(f"Does '{chosen_header}' have an audio field? (y/n): ").lower()
-                if has_audio in ['y', 'n']: break
-                print("Invalid input. Please enter 'y' or 'n'.")
-
-            new_structure[side].append({'type': chosen_header, 'audio': has_audio == 'y'})
-            print(f"--> '{chosen_header}' added to the {side}.\n")
-
         except ValueError:
             print("Invalid input. Please enter a number.")
+            continue
+
+        if not (1 <= choice <= len(available_headers)):
+            print("Invalid number. Please choose from the list.")
+            continue
+
+        chosen_header = available_headers[choice - 1]
+
+        while True:
+            audio_answer = input(f"Does '{chosen_header}' have audio? (y/n): ").lower()
+            if audio_answer in ['y', 'n']:
+                break
+            print("Invalid input. Enter 'y' or 'n'.")
+
+        entry = {'type': chosen_header, 'audio': audio_answer == 'y'}
+
+        if entry['audio']:
+            auto_answer = input("Enable autoplay? (y/n): ").lower()
+            if auto_answer == 'y':
+                entry['autoplay'] = True
+
+        new_structure[side].append(entry)
+        print(f"--> '{chosen_header}' added to the {side}.\n")
+
 
 def create_initial_structure(headers, csv_file_path):
     """
@@ -376,46 +385,49 @@ def _reorder_fields(data):
         # After breaking the inner loop, the outer loop continues, asking for the side again.
         
 def _toggle_audio_flag(data):
-    """
-    Handles toggling the audio flag for a field in a loop until the user exits.
-    """
     while True:
-        # Display the structure each time to show the current audio status
         _print_structure(data)
-        
-        side = input("Select side to toggle audio flag on ('front' or 'back') or 'exit': ").lower()
+
+        side = input("Select side ('front'/'back') or 'exit': ").lower()
         if side == 'exit':
             return
         if side not in ['front', 'back']:
-            print("Invalid input. Please enter 'front' or 'back'.\n")
+            print("Invalid side.\n")
             continue
-        
+
         if not data[side]:
-            print(f"The '{side}' is empty. Nothing to toggle.\n")
+            print(f"The '{side}' is empty.\n")
+            continue
+
+        choice_str = input(f"Enter the number of the field on '{side}' to toggle audio (or 'exit'): ").lower()
+        if choice_str == 'exit':
             continue
 
         try:
-            choice_str = input(f"Enter the number of the field on '{side}' to toggle its audio flag (or 'exit'): ")
-            if choice_str.lower() == 'exit':
-                continue # Go back to asking for the side
-
-            choice = int(choice_str)
-            if 1 <= choice <= len(data[side]):
-                # Access the chosen dictionary directly
-                field_index = choice - 1
-                field = data[side][field_index]
-                field_name = field['type']
-                
-                # Invert the boolean value
-                field['audio'] = not field['audio']
-                
-                new_status = "enabled" if field['audio'] else "disabled"
-                print(f"--> Audio for '{field_name}' is now {new_status}.\n")
-            else:
-                print("Invalid number. Please choose from the list.\n")
+            idx = int(choice_str) - 1
         except ValueError:
-            print("Invalid input. Please enter a number.\n")
-            
+            print("Invalid input.\n")
+            continue
+
+        if not (0 <= idx < len(data[side])):
+            print("Out of range.\n")
+            continue
+
+        field = data[side][idx]
+        field['audio'] = not field['audio']
+
+        if field['audio'] is True:
+            auto_answer = input("Enable autoplay? (y/n): ").lower()
+            if auto_answer == 'y':
+                field['autoplay'] = True
+            else:
+                field.pop('autoplay', None)
+        else:
+            field.pop('autoplay', None)
+
+        state = "enabled" if field['audio'] else "disabled"
+        print(f"--> Audio for '{field['type']}' is now {state}.\n")
+
 
 import json
 import copy
