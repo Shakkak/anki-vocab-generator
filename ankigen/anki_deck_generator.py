@@ -77,45 +77,27 @@ class AnkiDeckGenerator:
         Adds autoplay JS that attempts to click the first sound link / replaybutton
         or play HTML5 audio elements sequentially.
         """
-        all_field_names = set()
-        for item in self.structure.get("front", []):
-            all_field_names.add(item["type"])
+        # The model MUST contain all possible fields.
+        # So we scan both front and back to find all fields that EVER need an _Audio companion.
+        all_items = self.structure.get("front", []) + self.structure.get("back", [])
+        unique_field_names = sorted(list(set(item["type"] for item in all_items)))
 
         model_fields = []
-        fields_with_audio = set()
-
-        # Front fields always present
-        for field_name in sorted(list(all_field_names)):
+        for field_name in unique_field_names:
             sanitized = field_name.replace(" ", "_")
             model_fields.append({"name": sanitized})
-            # if front item declares audio, add audio field
-            has_audio = any(
-                item.get("audio") and item.get("type") == field_name
-                for item in self.structure.get("front", [])
-            )
-            if has_audio:
+            # If any definition of a field needs audio, create the audio field for it.
+            if any(item.get("audio") and item.get("type") == field_name for item in all_items):
                 model_fields.append({"name": sanitized + "_Audio"})
-                fields_with_audio.add(sanitized)
 
-        # Back fields: if merge_mode -> only MergedBack, else add each back field
+        # The MergedBack field is only needed for merge_mode
         if self.merge_mode:
             model_fields.append({"name": "MergedBack"})
-        else:
-            for item in self.structure.get("back", []):
-                field_name = item["type"]
-                sanitized = field_name.replace(" ", "_")
-                if sanitized not in [f["name"] for f in model_fields]:
-                    model_fields.append({"name": sanitized})
-                if item.get("audio"):
-                    model_fields.append({"name": sanitized + "_Audio"})
-                    fields_with_audio.add(sanitized)
 
         # Autoplay flag detection
         front_autoplay = self._side_has_autoplay(self.structure.get("front", []))
         back_autoplay = self._side_has_autoplay(self.structure.get("back", []))
 
-        # BUG 2 FIX: Switched to a more reliable JS snippet that targets a specific
-        # #autoplay ID and uses a timeout to wait for Anki to render the card.
         autoplay_js = (
             "<script>\n"
             "  setTimeout(function() {\n"
@@ -130,6 +112,8 @@ class AnkiDeckGenerator:
         )
 
         # ---------------- FRONT TEMPLATE ----------------
+        # The template, unlike the model, must be specific.
+        # It only includes an audio field if the JSON for THIS SIDE says so.
         qfmt = '<div class="card-front">\n'
         for item in self.structure.get("front", []):
             ftype = item["type"]
@@ -137,12 +121,11 @@ class AnkiDeckGenerator:
             open_tag = "{{#" + sanitized + "}}"
             close_tag = "{{/" + sanitized + "}}"
             content = "{{" + sanitized + "}}"
-            if sanitized in fields_with_audio:
+            # BUG FIX: Check the item specific to this side (front).
+            if item.get("audio"):
                 content += " {{" + sanitized + "_Audio}}"
 
-            # BUG 2 FIX: Add id="autoplay" to the content div if requested
             autoplay_id = ' id="autoplay"' if item.get("autoplay") else ""
-
             qfmt += f"    {open_tag}\n"
             qfmt += "    <div class=\"front-section\">\n"
             qfmt += f"        <div class=\"front-label\">{ftype}</div>\n"
@@ -152,7 +135,6 @@ class AnkiDeckGenerator:
 
         if front_autoplay:
             qfmt += autoplay_js
-
         qfmt += "</div>"
 
         # ---------------- BACK TEMPLATE ----------------
@@ -164,7 +146,7 @@ class AnkiDeckGenerator:
             if back_autoplay:
                 afmt += autoplay_js
             afmt += "</div>"
-        else:
+        else: # Normal mode
             afmt = "<div class=\"card-back\">\n"
             if self.include_front_on_back:
                 afmt += "    {{FrontSide}}\n"
@@ -176,12 +158,11 @@ class AnkiDeckGenerator:
                 open_tag = "{{#" + sanitized + "}}"
                 close_tag = "{{/" + sanitized + "}}"
                 content = "{{" + sanitized + "}}"
-                if sanitized in fields_with_audio:
+                # BUG FIX: Check the item specific to this side (back).
+                if item.get("audio"):
                     content += " {{" + sanitized + "_Audio}}"
 
-                # BUG 2 FIX: Add id="autoplay" to the content div if requested
                 autoplay_id = ' id="autoplay"' if item.get("autoplay") else ""
-
                 afmt += f"    {open_tag}\n"
                 afmt += "    <div class=\"front-section\">\n"
                 afmt += f"        <div class=\"front-label\">{ftype}</div>\n"
@@ -195,14 +176,8 @@ class AnkiDeckGenerator:
 
         model_id = abs(hash(json.dumps(self.structure, sort_keys=True) + self.css)) % (1 << 63)
         return genanki.Model(
-            model_id,
-            "Dynamic Vocabulary Model",
-            fields=model_fields,
-            templates=[{
-                "name": "Dynamic Card",
-                "qfmt": qfmt,
-                "afmt": afmt,
-            }],
+            model_id, "Dynamic Vocabulary Model", fields=model_fields,
+            templates=[{"name": "Dynamic Card", "qfmt": qfmt, "afmt": afmt}],
             css=self.css
         )
 
@@ -226,8 +201,7 @@ class AnkiDeckGenerator:
             new_r = {}
             new_r[self.key_column] = split_data[self.key_column][0]
             for key, values in split_data.items():
-                if key == self.key_column:
-                    continue
+                if key == self.key_column: continue
                 new_r[key] = values[i] if i < len(values) else ""
             processed.append(new_r)
         return processed
@@ -244,18 +218,20 @@ class AnkiDeckGenerator:
             print("No CSVs found.")
             return
 
+        deck_list = []
         if len(csv_files) == 1:
             deck_name = deck_name_prefix
             deck = genanki.Deck(abs(hash(deck_name)) % (10**10), deck_name)
             self._populate_deck(deck, csv_files[0], audio_folder, media_files)
-            package.decks.append(deck)
+            deck_list.append(deck)
         else:
             for csv_file in csv_files:
                 sdname = f"{deck_name_prefix}::{csv_file.stem}"
                 subdeck = genanki.Deck(abs(hash(sdname)) % (10**10), sdname)
                 self._populate_deck(subdeck, csv_file, audio_folder, media_files)
-                package.decks.append(subdeck)
-
+                deck_list.append(subdeck)
+        
+        package.decks.extend(deck_list)
         package.media_files = list(media_files)
         package.write_to_file(output_filename)
         print(f"✅ Wrote {output_filename} (media files: {len(package.media_files)})")
@@ -278,37 +254,38 @@ class AnkiDeckGenerator:
                 processed_rows = self._process_row(row)
 
                 if self.merge_mode:
-                    # ONE NOTE per original CSV row; build MergedBack with inline [sound:...] tags
                     blocks = []
                     for part_index, prow in enumerate(processed_rows, 1):
                         block_html_items = []
+                        # Build the merged back using only the "back" definition
                         for item in self.structure.get("back", []):
-                            ftype = item["type"]                       # exact header, with spaces
+                            ftype = item["type"]
+
+                            # Logic to include the key_column only ONCE on the back
+                            if ftype == self.key_column and part_index > 1:
+                                continue
+
                             sanitized = ftype.replace(" ", "_")
                             value = (prow.get(ftype, "") or "").strip()
 
-                            # skip empty values
                             if not value:
                                 continue
 
                             audio_tag = ""
+                            # BUG FIX: Add audio inline based on THIS item's property.
                             if item.get("audio"):
-                                # exact filename using literal column name (with spaces)
                                 audio_filename = f"ch{chapter}_r{row_idx}_c{ftype}_p{part_index}.mp3"
                                 audio_path = os.path.join(audio_folder, audio_filename)
                                 if os.path.exists(audio_path):
                                     media_files.add(audio_path)
-                                    # BUG 1 FIX: Removed <br> tag and added a space to place audio next to text.
                                     audio_tag = " [sound:" + audio_filename + "]"
                                 else:
-                                    # helpful debug message (comment out if noisy)
                                     print(f"⚠️ Missing audio: {audio_path}")
                             
-                            # BUG 2 FIX: Add id="autoplay" if this field should autoplay
                             autoplay_id = ' id="autoplay"' if item.get("autoplay") else ""
 
                             block_html = (
-                                '<div class="front-section">\n'
+                                f'<div class="front-section">\n'
                                 f'  <div class="front-label">{ftype}</div>\n'
                                 f'  <div{autoplay_id} class="front-content {sanitized.lower()}">{value}{audio_tag}</div>\n'
                                 '</div>'
@@ -320,49 +297,44 @@ class AnkiDeckGenerator:
 
                     merged_html = "\n-----------\n".join(blocks)
 
-                    # Build fields for note
+                    # Build the note fields. In merge_mode, ALL _Audio fields are empty
+                    # because all audio is rendered inline in the MergedBack field.
                     note_fields = []
                     for mf in self.model.fields:
                         name = mf["name"]
                         if name == "MergedBack":
                             note_fields.append(merged_html)
                         elif name.endswith("_Audio"):
-                            # In merged mode we put audio inline in MergedBack, so leave dedicated audio fields blank
                             note_fields.append("")
                         else:
                             col = name.replace("_", " ")
-                            # front fields use first part's values
                             note_fields.append(processed_rows[0].get(col, ""))
 
                     note = genanki.Note(model=self.model, fields=note_fields)
                     deck.add_note(note)
                     continue
 
-                # NORMAL MODE: one note per split part
+                # NORMAL MODE (unchanged):
                 for part_num, prow in enumerate(processed_rows, 1):
                     note_fields = []
                     for mf in self.model.fields:
                         name = mf["name"]
                         if name.endswith("_Audio"):
-                            base = name[:-6]  # sanitized name (underscores)
-                            # audio filename uses literal column header but base may be sanitized;
-                            # we must find the original column header matching base
-                            # Find the original header in structure that matches this sanitized name
+                            base = name[:-6]
                             original_header = None
-                            for item in self.structure.get("front", []) + self.structure.get("back", []):
+                            # Find the original header for this audio field
+                            for item in all_items:
                                 if item["type"].replace(" ", "_") == base:
                                     original_header = item["type"]
                                     break
-                            if original_header is None:
-                                # fallback: use base with spaces replaced by space
-                                original_header = base.replace("_", " ")
+                            if not original_header: original_header = base.replace("_", " ")
+
                             audio_filename = f"ch{chapter}_r{row_idx}_c{original_header}_p{part_num}.mp3"
                             audio_path = os.path.join(audio_folder, audio_filename)
                             if os.path.exists(audio_path):
                                 media_files.add(audio_path)
                                 note_fields.append(f"[sound:{audio_filename}]")
                             else:
-                                # leave blank if not found
                                 note_fields.append("")
                         else:
                             col = name.replace("_", " ")
