@@ -28,6 +28,7 @@ CARD_CSS = '''
     .front-section {
         margin-bottom: 25px; /* Adds space between items */
     }
+
     .front-label {
         font-size: 20px;
         font-weight: bold;
@@ -72,9 +73,7 @@ CARD_CSS = '''
          */
         white-space: pre-wrap; 
     }
-    /* This class is now redundant since .content handles it, but we can keep it for specific styling */
-    .examples {
-        color: #89cff0;
+
     }
 '''
 
@@ -170,7 +169,7 @@ if multiple_csv_flag and args.same_structure and args.merge_duplicates:
 
         # Generate audio for this DataFrame
         chapter_id = idx
-        generate_all_audio_from_df(merged_df, chapter_id, config_path, AUDIO_FOLDER)
+        # generate_all_audio_from_df(merged_df, chapter_id, config_path, AUDIO_FOLDER)
 
 
     generator = AnkiDeckGenerator(
