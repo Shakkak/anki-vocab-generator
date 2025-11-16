@@ -97,6 +97,7 @@ def generate_all_audio_from_df(df, chapter_id, json_path, AUDIO_FOLDER):
     os.makedirs(AUDIO_FOLDER, exist_ok=True)
 
     columns_for_audio = get_columns_for_audio(json_path)
+    
     if not columns_for_audio:
         print("⚠️ No audio columns configured. Exiting.")
         return

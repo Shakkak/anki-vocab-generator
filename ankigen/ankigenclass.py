@@ -216,8 +216,8 @@ def _assign_field_with_duplicates(side, new_structure, available_headers):
 
         if entry['audio']:
             auto_answer = input("Enable autoplay? (y/n): ").lower()
-            if auto_answer == 'y':
-                entry['autoplay'] = True
+            entry['autoplay'] = (auto_answer == 'y')   # ALWAYS set autoplay key
+
 
         new_structure[side].append(entry)
         print(f"--> '{chosen_header}' added to the {side}.\n")
@@ -259,6 +259,33 @@ def create_initial_structure(headers, csv_file_path):
 
 # You would also need the _display_creation_state function from the previous answer
 def _display_creation_state(available_headers, new_structure):
+    print("\n" + "="*50)
+    print("CARD STRUCTURE CREATION")
+    print("="*50)
+
+    print("\n[Available Headers Pool (can be duplicated)]")
+    if not available_headers:
+        print("  (Warning: No headers were provided.)")
+    for i, header in enumerate(available_headers, 1):
+        print(f"  {i}. {header}")
+
+    print("\n[Card Front]")
+    if not new_structure['front']:
+        print("  (empty)")
+    for field in new_structure['front']:
+        audio = "audio=True" if field.get('audio') else "audio=False"
+        autoplay = f", autoplay={field.get('autoplay', False)}" if field.get('audio') else ""
+        print(f"  - {field['type']} ({audio}{autoplay})")
+
+    print("\n[Card Back]")
+    if not new_structure['back']:
+        print("  (empty)")
+    for field in new_structure['back']:
+        audio = "audio=True" if field.get('audio') else "audio=False"
+        autoplay = f", autoplay={field.get('autoplay', False)}" if field.get('audio') else ""
+        print(f"  - {field['type']} ({audio}{autoplay})")
+
+    print("="*50 + "\n")
     """Helper to show the current state during creation."""
     print("\n" + "="*50)
     print("CARD STRUCTURE CREATION")
@@ -275,6 +302,25 @@ def _display_creation_state(available_headers, new_structure):
     print("="*50 + "\n")
             
 def _print_structure(data):
+    print("\n--- Current Card Structure ---")
+
+    print("Front:")
+    if not data['front']:
+        print("  (empty)")
+    for i, field in enumerate(data['front'], 1):
+        audio = "audio=True" if field.get('audio') else "audio=False"
+        autoplay = f", autoplay={field.get('autoplay', False)}" if field.get('audio') else ""
+        print(f"  {i}. {field['type']} ({audio}{autoplay})")
+
+    print("\nBack:")
+    if not data['back']:
+        print("  (empty)")
+    for i, field in enumerate(data['back'], 1):
+        audio = "audio=True" if field.get('audio') else "audio=False"
+        autoplay = f", autoplay={field.get('autoplay', False)}" if field.get('audio') else ""
+        print(f"  {i}. {field['type']} ({audio}{autoplay})")
+
+    print("----------------------------\n")
     """Helper function to print the current card structure with numbers."""
     print("\n--- Current Card Structure ---")
     print("Front:")
@@ -414,6 +460,49 @@ def _toggle_audio_flag(data):
             continue
 
         field = data[side][idx]
+
+        # toggle audio
+        field['audio'] = not field.get('audio', False)
+
+        if field['audio']:
+            # audio turned ON → always set autoplay explicitly
+            auto_answer = input("Enable autoplay? (y/n): ").lower()
+            field['autoplay'] = (auto_answer == 'y')
+        else:
+            # audio turned OFF → remove autoplay
+            field.pop('autoplay', None)
+
+        state = "enabled" if field['audio'] else "disabled"
+        print(f"--> Audio for '{field['type']}' is now {state}.\n")
+    while True:
+        _print_structure(data)
+
+        side = input("Select side ('front'/'back') or 'exit': ").lower()
+        if side == 'exit':
+            return
+        if side not in ['front', 'back']:
+            print("Invalid side.\n")
+            continue
+
+        if not data[side]:
+            print(f"The '{side}' is empty.\n")
+            continue
+
+        choice_str = input(f"Enter the number of the field on '{side}' to toggle audio (or 'exit'): ").lower()
+        if choice_str == 'exit':
+            continue
+
+        try:
+            idx = int(choice_str) - 1
+        except ValueError:
+            print("Invalid input.\n")
+            continue
+
+        if not (0 <= idx < len(data[side])):
+            print("Out of range.\n")
+            continue
+
+        field = data[side][idx]
         field['audio'] = not field['audio']
 
         if field['audio'] is True:
@@ -428,6 +517,39 @@ def _toggle_audio_flag(data):
         state = "enabled" if field['audio'] else "disabled"
         print(f"--> Audio for '{field['type']}' is now {state}.\n")
 
+def _toggle_autoplay_flag(data):
+    while True:
+        _print_structure(data)
+
+        side = input("Select side ('front'/'back') to toggle autoplay (or 'exit'): ").lower()
+        if side == 'exit':
+            return
+        if side not in ['front', 'back']:
+            print("Invalid side.\n")
+            continue
+
+        usable = [f for f in data[side] if f.get('audio')]
+        if not usable:
+            print("No fields with audio on this side.\n")
+            continue
+
+        try:
+            choice = int(input("Enter number of field to toggle autoplay: "))
+        except ValueError:
+            print("Invalid number.\n")
+            continue
+
+        if not (1 <= choice <= len(data[side])):
+            print("Out of range.\n")
+            continue
+
+        field = data[side][choice - 1]
+        if not field.get('audio'):
+            print("This field has no audio → autoplay can't be toggled.\n")
+            continue
+
+        field['autoplay'] = not field.get('autoplay', False)
+        print(f"--> Autoplay for '{field['type']}' now {field['autoplay']}.\n")
 
 import json
 import copy
@@ -467,7 +589,8 @@ def edit_card_structure(headers, json_path):
         print("2. Remove Fields")
         print("3. Reorder Fields")
         print("4. Toggle Audio Flag")
-        print("5. Save and Exit")
+        print("5. Toggle Autoplay Flag")
+        print("6. Save and Exit")
         choice = input("Enter your choice (1-5): ").strip()
 
         if choice == '1':
@@ -479,6 +602,8 @@ def edit_card_structure(headers, json_path):
         elif choice == '4':
             _toggle_audio_flag(data)
         elif choice == '5':
+            _toggle_autoplay_flag(data)
+        elif choice == '6':
             print(f"\nFinal structure before saving to {json_path.name}:")
             _print_structure(data)
             confirm = input("Save changes? (y/n): ").strip().lower()
