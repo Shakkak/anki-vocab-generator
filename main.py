@@ -152,10 +152,10 @@ if multiple_csv_flag and args.same_structure and args.merge_duplicates:
     first_df, first_headers, first_filename = dataframes_list[0], headers_list[0], filenames_list[0]
     first_config_path = Path(CSV_FOLDER, first_filename).with_suffix(".json")
 
-    # initial_card_structure = create_initial_structure(first_headers, first_config_path)
-    # print(json.dumps(initial_card_structure, indent=4))
+    initial_card_structure = create_initial_structure(first_headers, first_config_path)
+    print(json.dumps(initial_card_structure, indent=4))
 
-    # edited_version = edit_card_structure(headers_list[0], first_config_path)
+    edited_version = edit_card_structure(headers_list[0], first_config_path)
     # If same_structure: copy that JSON for the rest
     if args.same_structure:
         copy_json_for_same_structure(first_config_path, filenames_list)
@@ -169,7 +169,7 @@ if multiple_csv_flag and args.same_structure and args.merge_duplicates:
 
         # Generate audio for this DataFrame
         chapter_id = idx
-        # generate_all_audio_from_df(merged_df, chapter_id, config_path, AUDIO_FOLDER)
+        generate_all_audio_from_df(merged_df, chapter_id, config_path, AUDIO_FOLDER)
 
 
     generator = AnkiDeckGenerator(
